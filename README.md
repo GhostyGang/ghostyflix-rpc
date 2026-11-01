@@ -76,6 +76,10 @@ The app build is written to `dist/GhostyFlix RPC.exe`. To launch the UI from sou
 
 Focused bug reports and improvements are welcome. Please remove server addresses, usernames, tokens, Quick Connect codes, and provider keys from logs and screenshots before posting. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Acknowledgements
+
+GhostyFlix RPC grew from an early build based on [Jellyfin RPC](https://github.com/kennethsible/jellyfin-rpc), which we used as a reference for the original connection flow and playback features. We appreciate the project and its contributors. GhostyFlix v2 has since been rewritten as a separate implementation; see [Acknowledgements](ACKNOWLEDGEMENTS.md) for more context.
+
 ## License
 
 GhostyFlix RPC is distributed under the [MIT License](LICENSE). Jellyfin, Discord, TMDB, OMDb, MusicBrainz, and the Cover Art Archive are independent services; their names, artwork, and usage terms remain their respective owners' responsibility.

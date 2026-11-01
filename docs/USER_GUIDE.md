@@ -130,3 +130,7 @@ Discord needs to fetch an image URL it can reach. A private address such as `192
 - Keep the executable in a folder where your Windows user can replace files, or download the new build manually.
 
 For help, open a [GitHub issue](https://github.com/GhostyGang/ghostyflix-rpc/issues) with the Windows version, steps to reproduce, and relevant redacted log lines. Do not attach credentials, API keys, Quick Connect codes, or your settings file.
+
+## Acknowledgements
+
+GhostyFlix RPC's early build was based on [Jellyfin RPC](https://github.com/kennethsible/jellyfin-rpc), which informed the original connection flow and playback features. GhostyFlix v2 has since been rewritten as a separate implementation. See the [full acknowledgements](../ACKNOWLEDGEMENTS.md).
