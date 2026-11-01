@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.2 — 2026-11-01
+
+- Fix a startup crash caused by an unsupported CustomTkinter label option.
+
 ## 2.0.1 — 2026-11-01
 
 - Preserve saved Jellyfin sign-in sessions when upgrading from an earlier GhostyFlix release.

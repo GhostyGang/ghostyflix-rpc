@@ -202,7 +202,7 @@ class GhostyFlixApp(ctk.CTk):
         self.quick_panel.grid(row=3, column=0, sticky='nsew', padx=(18, 8), pady=(8, 12))
         ctk.CTkLabel(self.quick_panel, text='QUICK CONNECT', text_color=COLORS['orange'], font=ctk.CTkFont(size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 4))
         ctk.CTkLabel(self.quick_panel, text='Generate a short code, then approve it from a signed-in Jellyfin device.', text_color=COLORS['muted'], wraplength=390, justify='left').pack(anchor='w', padx=16, pady=(0, 12))
-        self.quick_code_label = ctk.CTkLabel(self.quick_panel, text='— — — — — —', text_color=COLORS['text'], font=ctk.CTkFont(size=26, weight='bold'), letter_spacing=4)
+        self.quick_code_label = ctk.CTkLabel(self.quick_panel, text='— — — — — —', text_color=COLORS['text'], font=ctk.CTkFont(size=26, weight='bold'))
         self.quick_code_label.pack(anchor='w', padx=16, pady=(0, 12))
         quick_actions = ctk.CTkFrame(self.quick_panel, fg_color='transparent')
         quick_actions.pack(fill='x', padx=12, pady=(0, 13))
