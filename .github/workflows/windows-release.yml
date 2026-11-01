@@ -33,8 +33,11 @@ jobs:
         shell: pwsh
         run: |
           $file = "dist/GhostyFlix RPC.exe"
+          $releaseFile = "dist/GhostyFlix.RPC.exe"
+          Copy-Item -LiteralPath $file -Destination $releaseFile
+          $file = $releaseFile
           $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
-          Set-Content -LiteralPath "dist/SHA256SUMS.txt" -Value "$hash  GhostyFlix RPC.exe" -Encoding ascii
+          Set-Content -LiteralPath "dist/SHA256SUMS.txt" -Value "$hash  GhostyFlix.RPC.exe" -Encoding ascii
 
       - name: Publish GitHub release
         shell: pwsh
@@ -42,7 +45,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create $env:GITHUB_REF_NAME `
-            "dist/GhostyFlix RPC.exe" `
+            "dist/GhostyFlix.RPC.exe" `
             "dist/SHA256SUMS.txt" `
             --verify-tag `
             --generate-notes

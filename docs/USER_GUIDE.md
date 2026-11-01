@@ -11,13 +11,15 @@ This guide walks through installing GhostyFlix, connecting Jellyfin, setting up 
 
 ## Install and sign in
 
-1. Download the latest `GhostyFlix RPC.exe` from [GitHub Releases](https://github.com/GhostyGang/ghostyflix-rpc/releases/latest) and open it.
+1. Download the latest `GhostyFlix.RPC.exe` from [GitHub Releases](https://github.com/GhostyGang/ghostyflix-rpc/releases/latest) and open it.
 2. In **Connect**, enter the server base address, for example `https://jellyfin.example.com` or `http://192.168.1.20:8096`. Do not add `/web`.
 3. With **Quick Connect** selected, choose **Get a code**.
 4. On a device signed into Jellyfin, open the user menu → **Quick Connect**, enter the code shown in GhostyFlix, and approve it.
 5. Keep GhostyFlix and Discord desktop running, then start playback in Jellyfin with the connected user.
 
 The code expires after five minutes. Request a fresh one if it expires. Quick Connect must be enabled in the Jellyfin server settings.
+
+When upgrading from an earlier GhostyFlix RPC release, the app reuses the Jellyfin sign-in and preferences already saved on this PC. It may ask you to sign in again if the saved session has expired or the server no longer accepts it.
 
 If Quick Connect is unavailable, choose **API key**, enter your Jellyfin username, and paste a key created from the Jellyfin Dashboard's **API Keys** page. API keys can grant broad access to a server; use one only on a trusted computer. GhostyFlix saves the resulting sign-in token locally so the connection can resume on the next launch.
 
@@ -70,6 +72,7 @@ The **Now Playing** tab previews the current title, artwork, playback status, pr
 - **Keep running when the window closes** puts the app in the system tray when tray support is available.
 - **Open GhostyFlix when Windows starts** adds or removes its entry in your Windows user startup list.
 - **Online updates** checks the selected public GitHub repository for a release and offers to install a verified Windows executable.
+- **Diagnostic detail** controls the local log level. Use **Open activity log** to review provider and connection messages or **Open settings folder** to locate the saved INI file.
 
 ## What Discord displays
 

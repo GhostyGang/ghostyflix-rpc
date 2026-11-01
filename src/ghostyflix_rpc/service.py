@@ -51,13 +51,14 @@ class PlaybackService:
         self._library_cache: dict[str, tuple[str, ...]] = {}
         self._preview_art_cache: dict[str, bytes] = {}
         self._last_artwork_source = ''
+        self._last_artwork_item = ''
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
         self._thread = threading.Thread(target=self._run, name='GhostyFlix playback', daemon=True)
         self._thread.start()
-        if self._settings.jellyfin_host and self._settings.jellyfin_token and self._user_id:
+        if self._settings.jellyfin_host and (self._settings.jellyfin_token or self._settings.jellyfin_api_key):
             self.commands.put(('resume', None))
 
     def close(self) -> None:
@@ -138,10 +139,21 @@ class PlaybackService:
             return
         if name == 'resume':
             settings = self._settings
-            if settings.jellyfin_host and settings.jellyfin_token and settings.jellyfin_user_id:
-                self._client = JellyfinClient(settings.jellyfin_host, settings.jellyfin_token)
-                self._user_id = settings.jellyfin_user_id
-                self._user_name = settings.jellyfin_username
+            token = settings.jellyfin_token or settings.jellyfin_api_key
+            if settings.jellyfin_host and token:
+                client = JellyfinClient(settings.jellyfin_host, token)
+                user_id = settings.jellyfin_user_id
+                user_name = settings.jellyfin_username
+                if not user_id:
+                    token, user_id, user_name = client.authenticate_api_key(token, user_name)
+                    settings.jellyfin_token = token
+                    settings.jellyfin_api_key = ''
+                    settings.jellyfin_user_id = user_id
+                    settings.jellyfin_username = user_name
+                    settings.save()
+                self._client = client
+                self._user_id = user_id
+                self._user_name = user_name
                 self._status(f'Connected as {self._user_name or "Jellyfin user"}. Waiting for playback…')
                 self._emit('connected', name=self._user_name, server=settings.jellyfin_host)
             return
@@ -227,8 +239,12 @@ class PlaybackService:
             self._status(f'Paused: {media.title}')
             return
         poster = self._artwork.poster(media, self._client, self._settings)
-        if self._artwork.last_source and self._artwork.last_source != self._last_artwork_source:
+        if self._artwork.last_source and (
+            self._artwork.last_source != self._last_artwork_source
+            or media.item_id != self._last_artwork_item
+        ):
             self._last_artwork_source = self._artwork.last_source
+            self._last_artwork_item = media.item_id
             logging.info('Artwork source selected: %s', self._last_artwork_source)
         preview_art: bytes | None = None
         if media.item_id in self._preview_art_cache:

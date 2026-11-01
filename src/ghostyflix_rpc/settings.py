@@ -88,13 +88,27 @@ class Settings:
             raw.setdefault('media_music', 'music' in kinds)
         if 'always_use_musicbrainz' in section:
             raw.setdefault('musicbrainz_artwork', section.getboolean('always_use_musicbrainz', fallback=False))
+        if 'always_use_tmdb' in section and 'poster_provider' not in section:
+            if section.getboolean('always_use_tmdb', fallback=False):
+                raw['poster_provider'] = 'TMDB'
+        if 'show_jellyfin_icon' in section:
+            raw['show_jellyfin_logo'] = bool(
+                raw.get('show_jellyfin_logo', False)
+                or section.getboolean('show_jellyfin_icon', fallback=False)
+            )
         raw['polling_rate'] = min(30, max(1, int(raw.get('polling_rate', 3))))
         raw['seek_threshold'] = min(30, max(1, int(raw.get('seek_threshold', 3))))
         raw['genre_limit'] = min(3, max(0, int(raw.get('genre_limit', 1))))
-        if raw.get('poster_provider') not in {'Jellyfin', 'TMDB', 'OMDb'}:
-            raw['poster_provider'] = 'Jellyfin'
+        provider_names = {'jellyfin': 'Jellyfin', 'tmdb': 'TMDB', 'omdb': 'OMDb'}
+        raw['poster_provider'] = provider_names.get(str(raw.get('poster_provider', 'Jellyfin')).lower(), 'Jellyfin')
+        raw['filter_mode'] = str(raw.get('filter_mode', 'blacklist')).lower()
         if raw.get('filter_mode') not in {'blacklist', 'whitelist'}:
             raw['filter_mode'] = 'blacklist'
+        raw['log_level'] = str(raw.get('log_level', 'INFO')).upper()
+        if raw['log_level'] not in {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'}:
+            raw['log_level'] = 'INFO'
+        if raw.get('poster_provider') not in {'Jellyfin', 'TMDB', 'OMDb'}:
+            raw['poster_provider'] = 'Jellyfin'
         return cls(**raw)
 
     def save(self) -> None:

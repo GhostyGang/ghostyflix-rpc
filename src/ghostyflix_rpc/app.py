@@ -52,7 +52,8 @@ def configure_logging() -> None:
     directory = settings_directory()
     directory.mkdir(parents=True, exist_ok=True)
     handler = RotatingFileHandler(directory / 'ghostyflix_rpc.log', maxBytes=4_000_000, backupCount=2, encoding='utf-8')
-    logging.basicConfig(level=logging.INFO, handlers=[handler], format='%(asctime)s %(levelname)s %(message)s')
+    level = getattr(logging, Settings.load().log_level, logging.INFO)
+    logging.basicConfig(level=level, handlers=[handler], format='%(asctime)s %(levelname)s %(message)s')
 
 
 class GhostyFlixApp(ctk.CTk):
@@ -307,7 +308,8 @@ class GhostyFlixApp(ctk.CTk):
         ctk.CTkButton(tab, text='Save activity settings', command=self._save_artwork_settings, height=40, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).grid(row=2, column=0, columnspan=2, sticky='ew', padx=18, pady=(10, 16))
 
     def _build_preferences_tab(self) -> None:
-        tab = self.tabs.tab('Preferences')
+        tab = ctk.CTkScrollableFrame(self.tabs.tab('Preferences'), fg_color='transparent', corner_radius=0)
+        tab.pack(fill='both', expand=True)
         tab.grid_columnconfigure((0, 1), weight=1)
         top = self._section_title(tab, 'Preferences', 'Tune how GhostyFlix runs, checks for playback changes, and receives releases.')
         top.grid(row=0, column=0, columnspan=2, sticky='ew', padx=18, pady=(18, 12))
@@ -349,7 +351,18 @@ class GhostyFlixApp(ctk.CTk):
         self.update_progress = ctk.CTkProgressBar(updater, height=7, progress_color=COLORS['orange'], fg_color='#333A43')
         self.update_progress.grid(row=3, column=0, columnspan=3, sticky='ew', padx=16, pady=(0, 14))
         self.update_progress.set(0)
-        ctk.CTkButton(tab, text='Save preferences', command=self._save_preferences, height=40, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).grid(row=3, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 16))
+        diagnostics = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], corner_radius=14)
+        diagnostics.grid(row=3, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 10))
+        diagnostics.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(diagnostics, text='DIAGNOSTICS', text_color=COLORS['orange'], font=ctk.CTkFont(size=11, weight='bold')).grid(row=0, column=0, sticky='w', padx=16, pady=(14, 4))
+        ctk.CTkLabel(diagnostics, text='Choose how much detail to write to the local activity log.', text_color=COLORS['muted'], anchor='w').grid(row=1, column=0, sticky='w', padx=16, pady=(0, 13))
+        self.log_level_var = tk.StringVar(value=self.settings.log_level)
+        ctk.CTkOptionMenu(diagnostics, values=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], variable=self.log_level_var, width=145, fg_color='#343B45', button_color=COLORS['orange'], button_hover_color=COLORS['orange_hover']).grid(row=0, column=1, sticky='e', padx=16, pady=(12, 4))
+        actions = ctk.CTkFrame(diagnostics, fg_color='transparent')
+        actions.grid(row=0, column=2, rowspan=2, sticky='e', padx=(8, 16), pady=12)
+        ctk.CTkButton(actions, text='Open settings folder', command=self._open_settings_folder, height=34, fg_color='#343B45', hover_color='#414B58').pack(side='left', padx=(0, 7))
+        ctk.CTkButton(actions, text='Open activity log', command=self._open_activity_log, height=34, fg_color='#343B45', hover_color='#414B58').pack(side='left')
+        ctk.CTkButton(tab, text='Save preferences', command=self._save_preferences, height=40, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).grid(row=4, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 16))
 
     def _section_title(self, parent: Any, title: str, description: str) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(parent, fg_color='transparent')
@@ -514,13 +527,34 @@ class GhostyFlixApp(ctk.CTk):
         self.settings.close_to_tray = bool(self.close_to_tray_var.get())
         self.settings.open_on_startup = bool(self.open_on_startup_var.get())
         self.settings.automatic_updates = bool(self.auto_update_var.get())
+        self.settings.log_level = self.log_level_var.get().upper()
         repository = self.repository_entry.get().strip()
         if repository:
             self.settings.update_repository = repository
         self.settings.save()
         self.service.update_settings(self.settings)
+        logging.getLogger().setLevel(getattr(logging, self.settings.log_level, logging.INFO))
         self._set_startup_registration(self.settings.open_on_startup)
         self.status_text.configure(text='Preferences saved.')
+
+    def _open_settings_folder(self) -> None:
+        self._open_local_path(settings_directory())
+
+    def _open_activity_log(self) -> None:
+        self._open_local_path(settings_directory() / 'ghostyflix_rpc.log')
+
+    @staticmethod
+    def _open_local_path(path: Path) -> None:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path.suffix:
+                path.touch(exist_ok=True)
+            if hasattr(os, 'startfile'):
+                os.startfile(str(path))
+            else:
+                webbrowser.open(path.as_uri())
+        except OSError as exc:
+            messagebox.showerror('Could not open file', str(exc))
 
     def _set_startup_registration(self, enabled: bool) -> None:
         if os.name != 'nt':
