@@ -368,10 +368,10 @@ class PlaybackService:
     def _badge_url(paused: bool, color: str) -> str:
         candidate = color.lstrip('#')
         safe = candidate if len(candidate) == 6 and all(char in '0123456789abcdefABCDEF' for char in candidate) else 'FF7628'
-        # Keep the marks ASCII so the remote image service cannot drop them
-        # when its font lacks a Unicode media glyph. Black keeps the tiny marks
-        # legible against the orange badge in Discord.
-        symbol = '%7C%7C' if paused else '%3E'
+        # Use bold Unicode media glyphs: the previous ASCII text marks were too
+        # thin at Discord's small badge size. Placehold renders these centered
+        # in a bold font and keeps them high contrast against the chosen color.
+        symbol = '%E2%8F%B8' if paused else '%E2%96%B6'  # ⏸ / ▶
         return f'https://placehold.co/128x128/{safe}/111111.png?text={symbol}&font=roboto'
 
     def _ensure_rpc(self) -> bool:

@@ -70,8 +70,8 @@ class ActivityTextTests(unittest.TestCase):
         paused = PlaybackService._badge_url(paused=True, color='#FF7628')
 
         self.assertIn('/FF7628/111111.png', playing)
-        self.assertIn('text=%3E&font=roboto', playing)
-        self.assertIn('text=%7C%7C&font=roboto', paused)
+        self.assertIn('text=%E2%96%B6&font=roboto', playing)
+        self.assertIn('text=%E2%8F%B8&font=roboto', paused)
 
 
 if __name__ == '__main__':

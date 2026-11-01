@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.4 — 2026-11-01
+
+- Restore bold play and pause glyphs in the Discord artwork badge.
+
 ## 2.0.3 — 2026-11-01
 
 - Minimize to the system tray when the window closes by default, with a clear preference to change the behavior.
