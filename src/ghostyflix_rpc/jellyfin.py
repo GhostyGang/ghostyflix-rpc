@@ -47,9 +47,15 @@ class JellyfinClient:
         self.base_url = address.strip().rstrip('/') + '/'
         self.device_id = device_id or str(uuid.uuid4())
         self.token = token
+        self._server_name: str | None = None
+        self._server_name_checked = False
+        authorization = self._authorization(token)
         self.http = requests.Session()
         self.http.headers.update({
-            'X-Emby-Authorization': self._authorization(token),
+            # Authorization is the current Jellyfin header. Keep the X-Emby
+            # forms for older servers and proxies that still depend on them.
+            'Authorization': authorization,
+            'X-Emby-Authorization': authorization,
             'X-Emby-Token': token,
             'Accept': 'application/json',
             'User-Agent': 'GhostyFlixRPC/2.0',
@@ -66,8 +72,36 @@ class JellyfinClient:
         return urljoin(self.base_url, path.lstrip('/'))
 
     def initiate_quick_connect(self) -> dict[str, Any]:
-        response = self.http.post(self.endpoint('/QuickConnect/Initiate'), params={'timeout': 300}, timeout=10)
-        response.raise_for_status()
+        response = self.http.post(self.endpoint('/QuickConnect/Initiate'), json={}, timeout=10)
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            status = response.status_code
+            detail = ''
+            try:
+                error_body = response.json()
+                if isinstance(error_body, dict):
+                    value = error_body.get('Message') or error_body.get('Error') or ''
+                    if isinstance(value, str):
+                        detail = value.strip()
+            except (ValueError, AttributeError):
+                detail = ''
+            suffix = f' Server detail: {detail[:180]}' if detail else ''
+            if status == 400:
+                raise RuntimeError(
+                    'Jellyfin rejected the Quick Connect request (HTTP 400). Confirm Quick Connect is enabled '
+                    'in the dashboard and the server address is the Jellyfin base URL.' + suffix
+                ) from exc
+            if status == 401:
+                raise RuntimeError(
+                    'Jellyfin refused Quick Connect. It may be disabled in the server dashboard.' + suffix
+                ) from exc
+            if status == 404:
+                raise RuntimeError(
+                    'Quick Connect was not found at this address. Enter the Jellyfin server base URL, '
+                    'not its /web page.' + suffix
+                ) from exc
+            raise RuntimeError(f'Jellyfin Quick Connect failed with HTTP {status}.{suffix}') from exc
         body = response.json()
         if not body.get('Secret') or not body.get('Code'):
             raise RuntimeError('The server did not return a Quick Connect code. Check that Quick Connect is enabled.')
@@ -106,7 +140,9 @@ class JellyfinClient:
     def set_token(self, token: str) -> None:
         self.token = token
         self.http.headers['X-Emby-Token'] = token
-        self.http.headers['X-Emby-Authorization'] = self._authorization(token)
+        authorization = self._authorization(token)
+        self.http.headers['Authorization'] = authorization
+        self.http.headers['X-Emby-Authorization'] = authorization
 
     def list_libraries(self, user_id: str) -> list[dict[str, str]]:
         response = self.http.get(self.endpoint(f'/Users/{user_id}/Views'), timeout=15)
@@ -152,6 +188,7 @@ class JellyfinClient:
         if selected is None:
             return None
         item = selected['NowPlayingItem']
+        server_name = self._configured_server_name() or str(selected.get('ServerName') or 'Jellyfin')
         play_state = selected.get('PlayState') or {}
         provider_ids = item.get('ProviderIds') or {}
         series_provider_ids = item.get('SeriesProviderIds') or {}
@@ -187,7 +224,7 @@ class JellyfinClient:
             position_seconds=position,
             duration_seconds=runtime,
             paused=bool(play_state.get('IsPaused')),
-            server_name=str(selected.get('ServerName') or 'Jellyfin'),
+            server_name=server_name,
             imdb_id=str(provider_ids.get('Imdb') or provider_ids.get('IMDb') or series_provider_ids.get('Imdb') or series_provider_ids.get('IMDb') or ''),
             tmdb_id=str(provider_ids.get('Tmdb') or series_provider_ids.get('Tmdb') or ''),
             musicbrainz_release_id=str(musicbrainz.get('MusicBrainzAlbum') or ''),
@@ -196,3 +233,18 @@ class JellyfinClient:
             album=album,
             season_number=int(item['ParentIndexNumber']) if item.get('ParentIndexNumber') is not None else None,
         )
+
+    def _configured_server_name(self) -> str | None:
+        """Read the name configured in Jellyfin's server settings once per connection."""
+        if not self._server_name_checked:
+            self._server_name_checked = True
+            try:
+                response = self.http.get(self.endpoint('/System/Info/Public'), timeout=8)
+                response.raise_for_status()
+                value = response.json().get('ServerName')
+                if isinstance(value, str) and value.strip():
+                    self._server_name = value.strip()
+            except (requests.RequestException, ValueError, AttributeError):
+                # Some proxies block the public info endpoint; session metadata remains a fallback.
+                pass
+        return self._server_name

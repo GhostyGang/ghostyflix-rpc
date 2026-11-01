@@ -19,6 +19,8 @@ This guide walks through installing GhostyFlix, connecting Jellyfin, setting up 
 
 The code expires after five minutes. Request a fresh one if it expires. Quick Connect must be enabled in the Jellyfin server settings.
 
+Use the server's base address, such as `http://192.168.1.20:8096`; do not add `/web`. If GhostyFlix cannot request a code, the Connect panel now displays the server error and the most likely fix. Check **Dashboard → General → Enable Quick Connect**. If the server is behind a reverse proxy, confirm the `/QuickConnect` API route is forwarded to Jellyfin.
+
 When upgrading from an earlier GhostyFlix RPC release, the app reuses the Jellyfin sign-in and preferences already saved on this PC. It may ask you to sign in again if the saved session has expired or the server no longer accepts it.
 
 If Quick Connect is unavailable, choose **API key**, enter your Jellyfin username, and paste a key created from the Jellyfin Dashboard's **API Keys** page. API keys can grant broad access to a server; use one only on a trusted computer. GhostyFlix saves the resulting sign-in token locally so the connection can resume on the next launch.
@@ -57,7 +59,7 @@ Jellyfin album artwork is the default. Turn on **Prefer MusicBrainz album artwor
 - Choose zero to three movie genres. One is the default.
 - Enable or disable movies, TV shows and episodes, and music independently.
 - Choose whether the activity stays visible while playback is paused.
-- Include watched or listened percentage and estimated time remaining.
+- Include watched or listened percentage and estimated time remaining in the Discord status. The local preview always shows these values when Jellyfin provides a duration.
 - Optionally show your Jellyfin server name.
 - Show or hide the play/pause poster badge. Orange is the default badge color; enter a hex color or choose one from the color picker.
 - Use the GhostyFlix mark as the small Discord activity image when the playback badge is hidden.
@@ -69,7 +71,7 @@ The **Now Playing** tab previews the current title, artwork, playback status, pr
 - **Playback check interval** controls how often GhostyFlix checks Jellyfin. It starts at three seconds.
 - **Seek refresh sensitivity** controls how large a position jump must be before Discord's timestamps refresh. It also starts at three seconds.
 - **Start minimized** opens GhostyFlix without showing the main window.
-- **Keep running when the window closes** puts the app in the system tray when tray support is available.
+- **Minimize to system tray when the window closes** is enabled by default. Use **Exit** from the tray menu to fully close GhostyFlix.
 - **Open GhostyFlix when Windows starts** adds or removes its entry in your Windows user startup list.
 - **Online updates** checks the selected public GitHub repository for a release and offers to install a verified Windows executable.
 - **Diagnostic detail** controls the local log level. Use **Open activity log** to review provider and connection messages or **Open settings folder** to locate the saved INI file.

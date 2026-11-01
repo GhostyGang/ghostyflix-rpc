@@ -15,7 +15,7 @@ from tkinter import colorchooser, messagebox
 from typing import Any
 
 import customtkinter as ctk
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 from . import APP_NAME, __version__
 from .jellyfin import MediaSession
@@ -30,16 +30,19 @@ except ImportError:  # Tray support is optional on platforms without a system tr
 
 
 COLORS = {
-    'background': '#101216',
-    'panel': '#181C22',
-    'panel_alt': '#20252D',
-    'edge': '#2C333D',
-    'text': '#F4F5F7',
-    'muted': '#9CA5B1',
-    'orange': '#F97316',
-    'orange_hover': '#EA580C',
-    'green': '#4CC38A',
-    'red': '#F87171',
+    'background': '#090A0D',
+    'panel': '#101216',
+    'panel_alt': '#17191E',
+    'edge': '#2A2D33',
+    'text': '#F5F2EF',
+    'muted': '#A3A0A0',
+    'orange': '#FF7628',
+    'orange_hover': '#FF8B43',
+    'orange_soft': '#2A1A13',
+    'button': '#1E2127',
+    'button_hover': '#292D34',
+    'green': '#65D4A1',
+    'red': '#FF7770',
 }
 
 
@@ -68,11 +71,15 @@ class GhostyFlixApp(ctk.CTk):
         self._poster_url = ''
         self._loaded_poster_url = ''
         self._poster_image: ctk.CTkImage | None = None
+        self._poster_placeholder_image: ctk.CTkImage | None = None
         self._poster_source: Image.Image | None = None
         self._logo_image: ctk.CTkImage | None = None
+        self._mini_logo_image: ctk.CTkImage | None = None
+        self._hero_image: ctk.CTkImage | None = None
         self._tray_icon: Any = None
         self._latest_release: Release | None = None
         self._update_busy = False
+        self._quick_connect_pending = False
         self._preview_started = 0.0
         self._preview_position = 0
         self._preview_after_id: str | None = None
@@ -90,8 +97,8 @@ class GhostyFlixApp(ctk.CTk):
 
     def _setup_window(self) -> None:
         self.title(f'{APP_NAME} · {__version__}')
-        self.geometry('1120x760')
-        self.minsize(940, 640)
+        self.geometry('1240x860')
+        self.minsize(1040, 720)
         self.configure(fg_color=COLORS['background'])
         icon = resource_path('assets', 'icon.ico')
         if icon.exists():
@@ -102,87 +109,135 @@ class GhostyFlixApp(ctk.CTk):
 
     def _build_shell(self) -> None:
         shell = ctk.CTkFrame(self, fg_color='transparent')
-        shell.pack(fill='both', expand=True, padx=24, pady=(18, 22))
-        header = ctk.CTkFrame(shell, fg_color='transparent')
-        header.pack(fill='x', pady=(0, 18))
+        shell.pack(fill='both', expand=True, padx=24, pady=(18, 18))
+        header = ctk.CTkFrame(
+            shell, fg_color=COLORS['panel'], border_width=1,
+            border_color=COLORS['edge'], corner_radius=24, height=138,
+        )
+        header.pack(fill='x', pady=(0, 14))
+        header.pack_propagate(False)
+        hero_path = resource_path('assets', 'ghostyflix-hero.png')
+        if hero_path.exists():
+            try:
+                hero_source = Image.open(hero_path).convert('RGBA').resize((1240, 138), Image.Resampling.LANCZOS)
+                self._hero_image = ctk.CTkImage(light_image=hero_source, dark_image=hero_source, size=(1240, 138))
+                ctk.CTkLabel(header, image=self._hero_image, text='').place(x=0, y=0, relwidth=1, relheight=1)
+            except Exception:
+                logging.exception('Could not load the GhostyFlix header artwork.')
         logo_path = resource_path('assets', 'icon.png')
+        header_content = ctk.CTkFrame(header, fg_color='transparent')
+        header_content.pack(fill='both', expand=True, padx=18, pady=13)
         if logo_path.exists():
             try:
                 image = Image.open(logo_path).convert('RGBA')
-                self._logo_image = ctk.CTkImage(light_image=image, dark_image=image, size=(50, 50))
-                ctk.CTkLabel(header, image=self._logo_image, text='').pack(side='left', padx=(0, 13))
+                self._logo_image = ctk.CTkImage(light_image=image, dark_image=image, size=(84, 84))
+                self._mini_logo_image = ctk.CTkImage(light_image=image, dark_image=image, size=(22, 22))
+                self._poster_placeholder_image = self._make_placeholder_image(image)
             except Exception:
-                pass
-        title_area = ctk.CTkFrame(header, fg_color='transparent')
-        title_area.pack(side='left', fill='y')
-        ctk.CTkLabel(title_area, text='GhostyFlix RPC', font=ctk.CTkFont(size=25, weight='bold'), text_color=COLORS['text']).pack(anchor='w')
-        ctk.CTkLabel(title_area, text='Jellyfin playback, styled for your Discord profile', font=ctk.CTkFont(size=12), text_color=COLORS['muted']).pack(anchor='w', pady=(1, 0))
+                logging.exception('Could not load the GhostyFlix logo.')
+        if self._logo_image:
+            logo_plate = ctk.CTkFrame(
+                header_content, width=102, height=102, fg_color='#15171B',
+                border_width=1, border_color='#493020', corner_radius=24,
+            )
+            logo_plate.pack(side='left', padx=(0, 20))
+            logo_plate.pack_propagate(False)
+            ctk.CTkLabel(logo_plate, image=self._logo_image, text='').place(relx=0.5, rely=0.5, anchor='center')
+        title_area = ctk.CTkFrame(header_content, fg_color='transparent')
+        title_area.pack(side='left', fill='y', expand=True, anchor='w')
+        ctk.CTkLabel(
+            title_area, text='GHOSTYFLIX RPC   /   JELLYFIN × DISCORD',
+            font=ctk.CTkFont(family='Segoe UI', size=10, weight='bold'), text_color=COLORS['orange'],
+        ).pack(anchor='w', pady=(7, 2))
+        ctk.CTkLabel(
+            title_area, text='Your screen, in the spotlight.',
+            font=ctk.CTkFont(family='Segoe UI', size=26, weight='bold'), text_color=COLORS['text'],
+        ).pack(anchor='w')
+        ctk.CTkLabel(
+            title_area, text='A live, artful presence for every movie, episode, and album.',
+            font=ctk.CTkFont(family='Segoe UI', size=13), text_color=COLORS['muted'],
+        ).pack(anchor='w', pady=(2, 0))
         self.connection_pill = ctk.CTkLabel(
-            header, text='●  Not connected', corner_radius=999,
-            fg_color=COLORS['panel_alt'], text_color=COLORS['muted'],
-            font=ctk.CTkFont(size=12, weight='bold'), padx=13, pady=8,
+            header_content, text='●  NOT CONNECTED', corner_radius=999,
+            fg_color='#111317', text_color=COLORS['muted'],
+            font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold'), padx=14, pady=9,
         )
-        self.connection_pill.pack(side='right', anchor='center')
+        self.connection_pill.pack(side='right', anchor='center', padx=(12, 2))
 
         self.tabs = ctk.CTkTabview(
             shell, fg_color=COLORS['panel'], segmented_button_fg_color=COLORS['panel_alt'],
-            segmented_button_selected_color=COLORS['orange'],
-            segmented_button_selected_hover_color=COLORS['orange_hover'],
+            segmented_button_selected_color='#B64D18',
+            segmented_button_selected_hover_color='#D45B1C',
             segmented_button_unselected_color=COLORS['panel_alt'],
-            segmented_button_unselected_hover_color='#303741',
-            text_color=COLORS['text'], corner_radius=16, border_width=1,
+            segmented_button_unselected_hover_color=COLORS['button_hover'],
+            text_color=COLORS['text'], corner_radius=20, border_width=1,
             border_color=COLORS['edge'],
         )
         self.tabs.pack(fill='both', expand=True)
         self.tabs.add('Now Playing')
         self.tabs.add('Connect')
-        self.tabs.add('Artwork & Activity')
-        self.tabs.add('Preferences')
+        self.tabs.add('Artwork')
+        self.tabs.add('Settings')
         self._build_preview_tab()
         self._build_connection_tab()
         self._build_artwork_tab()
         self._build_preferences_tab()
         footer = ctk.CTkFrame(shell, fg_color='transparent')
         footer.pack(fill='x', pady=(12, 0))
-        self.status_text = ctk.CTkLabel(footer, text='Ready when you are.', text_color=COLORS['muted'], anchor='w')
-        self.status_text.pack(side='left', fill='x', expand=True)
-        ctk.CTkLabel(footer, text=f'v{__version__}', text_color='#75808C', font=ctk.CTkFont(size=11)).pack(side='right')
+        status_panel = ctk.CTkFrame(footer, fg_color=COLORS['panel'], border_width=1, border_color=COLORS['edge'], corner_radius=12)
+        status_panel.pack(side='left', fill='x', expand=True, padx=(0, 14))
+        self.status_text = ctk.CTkLabel(status_panel, text='Ready when you are.', text_color=COLORS['muted'], anchor='w', font=ctk.CTkFont(family='Segoe UI', size=11))
+        self.status_text.pack(fill='x', padx=14, pady=8)
+        ctk.CTkLabel(footer, text=f'GHOSTYFLIX  ·  {__version__}', text_color=COLORS['muted'], font=ctk.CTkFont(family='Segoe UI', size=10, weight='bold')).pack(side='right')
 
     def _build_preview_tab(self) -> None:
         tab = self.tabs.tab('Now Playing')
         tab.grid_columnconfigure(0, weight=1)
         tab.grid_rowconfigure(1, weight=1)
         intro = ctk.CTkFrame(tab, fg_color='transparent')
-        intro.grid(row=0, column=0, sticky='ew', padx=16, pady=(16, 8))
-        ctk.CTkLabel(intro, text='Your activity preview', font=ctk.CTkFont(size=20, weight='bold'), text_color=COLORS['text']).pack(anchor='w')
-        ctk.CTkLabel(intro, text='A live look at the playback details GhostyFlix is preparing for Discord.', text_color=COLORS['muted']).pack(anchor='w', pady=(4, 0))
-        card = ctk.CTkFrame(tab, fg_color='#121519', border_width=1, border_color=COLORS['edge'], corner_radius=18)
-        card.grid(row=1, column=0, sticky='nsew', padx=16, pady=12)
+        intro.grid(row=0, column=0, sticky='ew', padx=20, pady=(18, 7))
+        ctk.CTkLabel(intro, text='LIVE PREVIEW', font=ctk.CTkFont(family='Segoe UI', size=10, weight='bold'), text_color=COLORS['orange']).pack(anchor='w', pady=(0, 3))
+        ctk.CTkLabel(intro, text='Now playing', font=ctk.CTkFont(family='Segoe UI', size=23, weight='bold'), text_color=COLORS['text']).pack(anchor='w')
+        ctk.CTkLabel(intro, text='A real-time preview of the activity GhostyFlix is preparing for Discord.', font=ctk.CTkFont(family='Segoe UI', size=12), text_color=COLORS['muted']).pack(anchor='w', pady=(3, 0))
+        card = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=22)
+        card.grid(row=1, column=0, sticky='nsew', padx=20, pady=12)
         card.grid_columnconfigure(1, weight=1)
-        card.grid_rowconfigure(0, weight=1)
-        self.preview_heading = ctk.CTkLabel(card, text='WATCHING YOUR JELLYFIN SERVER', text_color=COLORS['muted'], font=ctk.CTkFont(size=11, weight='bold'), anchor='w')
-        self.preview_heading.grid(row=0, column=0, columnspan=2, sticky='ew', padx=18, pady=(17, 14))
-        self.poster_label = ctk.CTkLabel(card, text='GHOSTYFLIX', width=148, height=196, corner_radius=12, fg_color=COLORS['panel_alt'], text_color=COLORS['orange'], font=ctk.CTkFont(size=12, weight='bold'))
-        self.poster_label.grid(row=1, column=0, rowspan=5, sticky='nw', padx=(18, 20), pady=(0, 18))
-        self.preview_title = ctk.CTkLabel(card, text='Start playback to see your activity', text_color=COLORS['text'], font=ctk.CTkFont(size=23, weight='bold'), anchor='w', justify='left', wraplength=630)
-        self.preview_title.grid(row=1, column=1, sticky='ew', padx=(0, 20), pady=(6, 2))
-        self.preview_subtitle = ctk.CTkLabel(card, text='Movies, episodes, and music will appear here.', text_color=COLORS['muted'], font=ctk.CTkFont(size=14), anchor='w', wraplength=650, justify='left')
-        self.preview_subtitle.grid(row=2, column=1, sticky='ew', padx=(0, 20), pady=(0, 15))
+        card.grid_rowconfigure(5, weight=1)
+        self.preview_heading = ctk.CTkLabel(
+            card, text='YOUR JELLYFIN SERVER', image=self._mini_logo_image, compound='left',
+            text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold'), anchor='w',
+        )
+        self.preview_heading.grid(row=0, column=0, columnspan=2, sticky='ew', padx=20, pady=(18, 16))
+        self.poster_label = ctk.CTkLabel(
+            card, text='', image=self._poster_placeholder_image, width=176, height=234, corner_radius=16,
+            fg_color='#101216', text_color=COLORS['orange'],
+            font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold'), border_width=1,
+            border_color=COLORS['edge'],
+        )
+        self.poster_label.grid(row=1, column=0, rowspan=5, sticky='nw', padx=(20, 24), pady=(0, 20))
+        self.preview_title = ctk.CTkLabel(card, text='Start playback to see your activity', text_color=COLORS['text'], font=ctk.CTkFont(family='Segoe UI', size=25, weight='bold'), anchor='w', justify='left', wraplength=680)
+        self.preview_title.grid(row=1, column=1, sticky='ew', padx=(0, 24), pady=(4, 3))
+        self.preview_subtitle = ctk.CTkLabel(card, text='Movies, episodes, and music will appear here.', text_color=COLORS['muted'], font=ctk.CTkFont(family='Segoe UI', size=14), anchor='w', wraplength=690, justify='left')
+        self.preview_subtitle.grid(row=2, column=1, sticky='ew', padx=(0, 24), pady=(0, 18))
         times = ctk.CTkFrame(card, fg_color='transparent')
-        times.grid(row=3, column=1, sticky='ew', padx=(0, 20), pady=(4, 0))
+        times.grid(row=3, column=1, sticky='ew', padx=(0, 24), pady=(4, 0))
         times.grid_columnconfigure(0, weight=1)
-        self.elapsed_label = ctk.CTkLabel(times, text='0:00', text_color=COLORS['text'], font=ctk.CTkFont(size=12, weight='bold'))
+        self.elapsed_label = ctk.CTkLabel(times, text='0:00', text_color=COLORS['text'], font=ctk.CTkFont(family='Segoe UI', size=12, weight='bold'))
         self.elapsed_label.grid(row=0, column=0, sticky='w')
-        self.duration_label = ctk.CTkLabel(times, text='0:00', text_color=COLORS['text'], font=ctk.CTkFont(size=12, weight='bold'))
+        self.duration_label = ctk.CTkLabel(times, text='0:00', text_color=COLORS['text'], font=ctk.CTkFont(family='Segoe UI', size=12, weight='bold'))
         self.duration_label.grid(row=0, column=1, sticky='e')
-        self.preview_progress = ctk.CTkProgressBar(times, height=10, corner_radius=999, fg_color='#333A43', progress_color=COLORS['orange'])
+        self.preview_progress = ctk.CTkProgressBar(times, height=11, corner_radius=999, fg_color='#303238', progress_color=COLORS['orange'])
         self.preview_progress.set(0)
-        self.preview_progress.grid(row=1, column=0, columnspan=2, sticky='ew', pady=(8, 0))
-        self.preview_state = ctk.CTkLabel(card, text='Waiting for Jellyfin playback', text_color=COLORS['orange'], font=ctk.CTkFont(size=13, weight='bold'), anchor='w')
-        self.preview_state.grid(row=4, column=1, sticky='ew', padx=(0, 20), pady=(14, 4))
-        hint = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], corner_radius=12)
-        hint.grid(row=2, column=0, sticky='ew', padx=16, pady=(0, 16))
-        ctk.CTkLabel(hint, text='Discord uses its own activity card design. This preview reflects the title, status, poster, and timing GhostyFlix sends.', text_color=COLORS['muted'], wraplength=800, justify='left').pack(fill='x', padx=16, pady=12)
+        self.preview_progress.grid(row=1, column=0, columnspan=2, sticky='ew', pady=(10, 0))
+        self.preview_state = ctk.CTkLabel(
+            card, text='Waiting for Jellyfin playback', text_color=COLORS['orange'],
+            fg_color=COLORS['orange_soft'], corner_radius=10,
+            font=ctk.CTkFont(family='Segoe UI', size=12, weight='bold'), anchor='w', padx=12, pady=7,
+        )
+        self.preview_state.grid(row=4, column=1, sticky='w', padx=(0, 24), pady=(15, 5))
+        hint = ctk.CTkFrame(tab, fg_color='#121418', border_width=1, border_color=COLORS['edge'], corner_radius=14)
+        hint.grid(row=2, column=0, sticky='ew', padx=20, pady=(0, 16))
+        ctk.CTkLabel(hint, text='The local preview always includes progress. The activity toggle controls whether Discord shows percentage watched and time left.', text_color=COLORS['muted'], font=ctk.CTkFont(family='Segoe UI', size=11), wraplength=900, justify='left').pack(fill='x', padx=16, pady=12)
 
     def _build_connection_tab(self) -> None:
         tab = self.tabs.tab('Connect')
@@ -193,80 +248,87 @@ class GhostyFlixApp(ctk.CTk):
         self.server_entry = self._labeled_entry(tab, 1, 0, 'Server address', 'https://jellyfin.example.com', columnspan=2)
         mode = ctk.CTkFrame(tab, fg_color='transparent')
         mode.grid(row=2, column=0, columnspan=2, sticky='ew', padx=18, pady=(10, 6))
-        ctk.CTkLabel(mode, text='Sign-in method', text_color=COLORS['muted'], font=ctk.CTkFont(size=12, weight='bold')).pack(anchor='w', pady=(0, 7))
+        ctk.CTkLabel(mode, text='Sign-in method', text_color=COLORS['muted'], font=ctk.CTkFont(family='Segoe UI', size=12, weight='bold')).pack(anchor='w', pady=(0, 7))
         self.auth_mode = tk.StringVar(value='Quick Connect')
-        self.auth_picker = ctk.CTkSegmentedButton(mode, values=['Quick Connect', 'API key'], variable=self.auth_mode, command=self._change_auth_mode, selected_color=COLORS['orange'], selected_hover_color=COLORS['orange_hover'], unselected_color=COLORS['panel_alt'])
+        self.auth_picker = ctk.CTkSegmentedButton(mode, values=['Quick Connect', 'API key'], variable=self.auth_mode, command=self._change_auth_mode, selected_color='#B64D18', selected_hover_color='#D45B1C', unselected_color=COLORS['panel_alt'], text_color=COLORS['text'], font=ctk.CTkFont(family='Segoe UI', size=12, weight='bold'), corner_radius=11, height=36)
         self.auth_picker.pack(anchor='w')
 
-        self.quick_panel = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], corner_radius=14)
+        self.quick_panel = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=18)
         self.quick_panel.grid(row=3, column=0, sticky='nsew', padx=(18, 8), pady=(8, 12))
-        ctk.CTkLabel(self.quick_panel, text='QUICK CONNECT', text_color=COLORS['orange'], font=ctk.CTkFont(size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 4))
-        ctk.CTkLabel(self.quick_panel, text='Generate a short code, then approve it from a signed-in Jellyfin device.', text_color=COLORS['muted'], wraplength=390, justify='left').pack(anchor='w', padx=16, pady=(0, 12))
-        self.quick_code_label = ctk.CTkLabel(self.quick_panel, text='— — — — — —', text_color=COLORS['text'], font=ctk.CTkFont(size=26, weight='bold'))
-        self.quick_code_label.pack(anchor='w', padx=16, pady=(0, 12))
+        ctk.CTkLabel(self.quick_panel, text='01  /  QUICK CONNECT', text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold')).pack(anchor='w', padx=18, pady=(17, 5))
+        ctk.CTkLabel(self.quick_panel, text='Link your account with a one-time code. Approve it in Jellyfin on a device where you are already signed in.', text_color=COLORS['muted'], wraplength=390, justify='left').pack(anchor='w', padx=18, pady=(0, 15))
+        code_panel = ctk.CTkFrame(self.quick_panel, fg_color='#111317', border_width=1, border_color=COLORS['edge'], corner_radius=14)
+        code_panel.pack(fill='x', padx=16, pady=(0, 12))
+        self.quick_code_label = ctk.CTkLabel(code_panel, text='— — — — — —', text_color=COLORS['text'], font=ctk.CTkFont(family='Segoe UI', size=28, weight='bold'))
+        self.quick_code_label.pack(anchor='center', padx=10, pady=(12, 4))
+        self.quick_feedback = ctk.CTkLabel(code_panel, text='Your code will appear here.', text_color=COLORS['muted'], font=ctk.CTkFont(family='Segoe UI', size=11), wraplength=380, justify='center')
+        self.quick_feedback.pack(fill='x', padx=12, pady=(0, 12))
         quick_actions = ctk.CTkFrame(self.quick_panel, fg_color='transparent')
-        quick_actions.pack(fill='x', padx=12, pady=(0, 13))
-        ctk.CTkButton(quick_actions, text='Get a code', command=self._start_quick_connect, height=38, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(side='left', padx=4)
-        ctk.CTkButton(quick_actions, text='Copy code', command=self._copy_quick_code, height=38, fg_color='#343B45', hover_color='#414B58').pack(side='left', padx=4)
-        self.quick_instruction = ctk.CTkLabel(self.quick_panel, text='Jellyfin → user menu → Quick Connect → enter code → approve', text_color=COLORS['muted'], wraplength=390, justify='left', font=ctk.CTkFont(size=11))
-        self.quick_instruction.pack(anchor='w', padx=16, pady=(0, 14))
+        quick_actions.pack(fill='x', padx=14, pady=(0, 12))
+        self.quick_code_button = self._button(quick_actions, text='Get a Quick Connect code', command=self._start_quick_connect, primary=True, height=44)
+        self.quick_code_button.pack(side='left', fill='x', expand=True, padx=(0, 7))
+        self.copy_code_button = self._button(quick_actions, text='Copy code', command=self._copy_quick_code, height=44, state='disabled')
+        self.copy_code_button.pack(side='left')
+        self.quick_instruction = ctk.CTkLabel(self.quick_panel, text='Jellyfin → user menu → Quick Connect → enter the code → approve', text_color=COLORS['muted'], wraplength=390, justify='left', font=ctk.CTkFont(family='Segoe UI', size=11))
+        self.quick_instruction.pack(anchor='w', padx=18, pady=(0, 16))
 
-        self.api_panel = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], corner_radius=14)
+        self.api_panel = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=18)
         self.api_panel.grid(row=3, column=1, sticky='nsew', padx=(8, 18), pady=(8, 12))
-        ctk.CTkLabel(self.api_panel, text='API KEY SIGN-IN', text_color=COLORS['orange'], font=ctk.CTkFont(size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 4))
+        ctk.CTkLabel(self.api_panel, text='API KEY SIGN-IN', text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 4))
         ctk.CTkLabel(self.api_panel, text='Use a Jellyfin API key if Quick Connect is unavailable on your server.', text_color=COLORS['muted'], wraplength=390, justify='left').pack(anchor='w', padx=16, pady=(0, 11))
         self.username_entry = self._entry(self.api_panel, 'Jellyfin username')
         self.username_entry.pack(fill='x', padx=16, pady=5)
         self.api_key_entry = self._entry(self.api_panel, 'API key', show='•')
         self.api_key_entry.pack(fill='x', padx=16, pady=5)
-        ctk.CTkLabel(self.api_panel, text='Create a key in Jellyfin Dashboard → API Keys. Store it only on a trusted PC.', text_color=COLORS['muted'], wraplength=390, justify='left', font=ctk.CTkFont(size=11)).pack(anchor='w', padx=16, pady=(6, 15))
+        ctk.CTkLabel(self.api_panel, text='Create a key in Jellyfin Dashboard → API Keys. Store it only on a trusted PC.', text_color=COLORS['muted'], wraplength=390, justify='left', font=ctk.CTkFont(family='Segoe UI', size=11)).pack(anchor='w', padx=16, pady=(6, 15))
 
-        self.connect_button = ctk.CTkButton(tab, text='Connect to Jellyfin', command=self._connect_selected, height=42, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover'], font=ctk.CTkFont(size=14, weight='bold'))
+        self.connect_button = self._button(tab, text='Connect to Jellyfin', command=self._connect_selected, primary=True, height=44)
         self.connect_button.grid(row=4, column=0, sticky='ew', padx=(18, 8), pady=(0, 12))
-        self.disconnect_button = ctk.CTkButton(tab, text='Disconnect', command=self._disconnect, height=42, fg_color='#303741', hover_color='#414B58')
+        self.disconnect_button = self._button(tab, text='Disconnect', command=self._disconnect, height=44)
         self.disconnect_button.grid(row=4, column=1, sticky='ew', padx=(8, 18), pady=(0, 12))
-        library_row = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], corner_radius=14)
+        self.disconnect_button.grid_remove()
+        library_row = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=16)
         library_row.grid(row=5, column=0, columnspan=2, sticky='ew', padx=18, pady=(0, 16))
         library_row.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(library_row, text='Library filters', text_color=COLORS['text'], font=ctk.CTkFont(size=13, weight='bold')).grid(row=0, column=0, sticky='w', padx=16, pady=(12, 2))
+        ctk.CTkLabel(library_row, text='Library filters', text_color=COLORS['text'], font=ctk.CTkFont(family='Segoe UI', size=13, weight='bold')).grid(row=0, column=0, sticky='w', padx=16, pady=(12, 2))
         self.library_summary = ctk.CTkLabel(library_row, text='All libraries included', text_color=COLORS['muted'], anchor='w')
         self.library_summary.grid(row=1, column=0, sticky='ew', padx=16, pady=(2, 12))
-        ctk.CTkButton(library_row, text='Choose libraries', command=self._load_libraries, width=150, height=36, fg_color='#343B45', hover_color='#414B58').grid(row=0, column=1, rowspan=2, padx=14, pady=12)
+        self._button(library_row, text='Choose libraries', command=self._load_libraries, width=160, height=38).grid(row=0, column=1, rowspan=2, padx=14, pady=12)
         self._change_auth_mode(self.auth_mode.get())
 
     def _build_artwork_tab(self) -> None:
-        tab = ctk.CTkScrollableFrame(self.tabs.tab('Artwork & Activity'), fg_color='transparent', corner_radius=0)
+        tab = ctk.CTkScrollableFrame(self.tabs.tab('Artwork'), fg_color='transparent', corner_radius=0)
         tab.pack(fill='both', expand=True)
         tab.grid_columnconfigure(0, weight=1)
         tab.grid_columnconfigure(1, weight=1)
         top = self._section_title(tab, 'Artwork & activity', 'Choose the artwork, playback details, and badge that GhostyFlix sends to Discord.')
         top.grid(row=0, column=0, columnspan=2, sticky='ew', padx=18, pady=(18, 12))
-        artwork_card = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], corner_radius=14)
+        artwork_card = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=18)
         artwork_card.grid(row=1, column=0, sticky='nsew', padx=(18, 8), pady=8)
-        activity_card = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], corner_radius=14)
+        activity_card = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=18)
         activity_card.grid(row=1, column=1, sticky='nsew', padx=(8, 18), pady=8)
-        ctk.CTkLabel(artwork_card, text='POSTERS & ALBUM ART', text_color=COLORS['orange'], font=ctk.CTkFont(size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 8))
+        ctk.CTkLabel(artwork_card, text='POSTERS & ALBUM ART', text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 8))
         ctk.CTkLabel(artwork_card, text='Movie & show poster source', text_color=COLORS['muted']).pack(anchor='w', padx=16)
         self.provider_var = tk.StringVar(value=self.settings.poster_provider)
-        self.provider_menu = ctk.CTkOptionMenu(artwork_card, values=['Jellyfin', 'TMDB', 'OMDb'], variable=self.provider_var, width=220, fg_color='#343B45', button_color=COLORS['orange'], button_hover_color=COLORS['orange_hover'])
+        self.provider_menu = self._option_menu(artwork_card, values=['Jellyfin', 'TMDB', 'OMDb'], variable=self.provider_var, width=220, fg_color=COLORS['button'], button_color=COLORS['orange'], button_hover_color=COLORS['orange_hover'], corner_radius=10)
         self.provider_menu.pack(anchor='w', padx=16, pady=(6, 8))
         self.tmdb_key_entry = self._entry(artwork_card, 'TMDB API key (optional)', show='•')
         self.tmdb_key_entry.pack(fill='x', padx=16, pady=5)
-        ctk.CTkButton(artwork_card, text='Get a TMDB key ↗', command=lambda: webbrowser.open('https://www.themoviedb.org/settings/api'), fg_color='transparent', hover_color='#343B45', anchor='w', height=27).pack(fill='x', padx=11)
+        self._button(artwork_card, text='Get a TMDB key ↗', command=lambda: webbrowser.open('https://www.themoviedb.org/settings/api'), quiet=True, anchor='w', height=30).pack(fill='x', padx=11)
         self.omdb_key_entry = self._entry(artwork_card, 'OMDb API key or full API URL', show='•')
         self.omdb_key_entry.pack(fill='x', padx=16, pady=(7, 3))
-        ctk.CTkButton(artwork_card, text='Get an OMDb key ↗', command=lambda: webbrowser.open('https://www.omdbapi.com/apikey.aspx'), fg_color='transparent', hover_color='#343B45', anchor='w', height=27).pack(fill='x', padx=11)
+        self._button(artwork_card, text='Get an OMDb key ↗', command=lambda: webbrowser.open('https://www.omdbapi.com/apikey.aspx'), quiet=True, anchor='w', height=30).pack(fill='x', padx=11)
         self.musicbrainz_var = tk.BooleanVar(value=self.settings.musicbrainz_artwork)
-        ctk.CTkCheckBox(artwork_card, text='Prefer MusicBrainz album artwork', variable=self.musicbrainz_var, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=(12, 4))
+        self._checkbox(artwork_card, text='Prefer MusicBrainz album artwork', variable=self.musicbrainz_var, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=(12, 4))
         self.release_over_group_var = tk.BooleanVar(value=self.settings.release_over_group)
-        ctk.CTkCheckBox(artwork_card, text='Prefer a specific album release cover', variable=self.release_over_group_var, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=4)
+        self._checkbox(artwork_card, text='Prefer a specific album release cover', variable=self.release_over_group_var, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=4)
         self.season_over_series_var = tk.BooleanVar(value=self.settings.season_over_series)
-        ctk.CTkCheckBox(artwork_card, text='Use season artwork for TV episodes', variable=self.season_over_series_var, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=4)
+        self._checkbox(artwork_card, text='Use season artwork for TV episodes', variable=self.season_over_series_var, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=4)
         self.textless_posters_var = tk.BooleanVar(value=self.settings.textless_posters)
-        ctk.CTkCheckBox(artwork_card, text='Prefer textless posters', variable=self.textless_posters_var, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=4)
+        self._checkbox(artwork_card, text='Prefer textless posters', variable=self.textless_posters_var, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=4)
         self.poster_languages_entry = self._entry(artwork_card, 'Poster languages, e.g. en, fr')
         self.poster_languages_entry.pack(fill='x', padx=16, pady=(5, 4))
-        ctk.CTkLabel(artwork_card, text='MusicBrainz and the Cover Art Archive need no API key. Language choices guide TMDB poster selection.', text_color=COLORS['muted'], wraplength=420, justify='left', font=ctk.CTkFont(size=11)).pack(anchor='w', padx=16, pady=(0, 15))
+        ctk.CTkLabel(artwork_card, text='MusicBrainz and the Cover Art Archive need no API key. Language choices guide TMDB poster selection.', text_color=COLORS['muted'], wraplength=420, justify='left', font=ctk.CTkFont(family='Segoe UI', size=11)).pack(anchor='w', padx=16, pady=(0, 15))
         tmdb_mark = resource_path('assets', 'tmdb-approved-logo.png')
         if tmdb_mark.exists():
             try:
@@ -276,9 +338,9 @@ class GhostyFlixApp(ctk.CTk):
                 ctk.CTkLabel(artwork_card, text='', image=self._tmdb_image).pack(anchor='w', padx=16, pady=(0, 2))
             except Exception:
                 pass
-        ctk.CTkLabel(artwork_card, text='This product uses the TMDB API but is not endorsed or certified by TMDB.', text_color=COLORS['muted'], wraplength=420, justify='left', font=ctk.CTkFont(size=10)).pack(anchor='w', padx=16, pady=(0, 12))
+        ctk.CTkLabel(artwork_card, text='This product uses the TMDB API but is not endorsed or certified by TMDB.', text_color=COLORS['muted'], wraplength=420, justify='left', font=ctk.CTkFont(family='Segoe UI', size=10)).pack(anchor='w', padx=16, pady=(0, 12))
 
-        ctk.CTkLabel(activity_card, text='ACTIVITY DETAILS', text_color=COLORS['orange'], font=ctk.CTkFont(size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 9))
+        ctk.CTkLabel(activity_card, text='ACTIVITY DETAILS', text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 9))
         self.genre_var = tk.StringVar(value=str(self.settings.genre_limit))
         self._option_setting(activity_card, 'Movie genres shown', self.genre_var, ['0', '1', '2', '3'])
         self.media_movies_var = tk.BooleanVar(value=self.settings.media_movies)
@@ -292,91 +354,158 @@ class GhostyFlixApp(ctk.CTk):
         for label, variable in (
             ('Movies', self.media_movies_var), ('TV shows and episodes', self.media_shows_var),
             ('Music', self.media_music_var), ('Keep activity visible while paused', self.show_paused_var),
-            ('Show watched percentage and time remaining', self.progress_text_var),
-            ('Show Jellyfin server name', self.server_name_var),
+            ('Include percentage watched and time left in Discord status', self.progress_text_var),
+            ('Use my server name in the Discord headline', self.server_name_var),
             ('Show a play / pause badge on the poster', self.badge_var),
             ('Show GhostyFlix logo when the play / pause badge is off', self.show_jellyfin_logo_var),
         ):
-            ctk.CTkCheckBox(activity_card, text=label, variable=variable, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=5)
+            self._checkbox(activity_card, text=label, variable=variable, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=5)
         color_row = ctk.CTkFrame(activity_card, fg_color='transparent')
         color_row.pack(fill='x', padx=12, pady=(5, 14))
         ctk.CTkLabel(color_row, text='Badge color', text_color=COLORS['muted']).pack(side='left', padx=4)
-        self.badge_color_entry = ctk.CTkEntry(color_row, width=105, placeholder_text='#F97316')
+        self.badge_color_entry = ctk.CTkEntry(color_row, width=105, height=36, placeholder_text=COLORS['orange'], fg_color='#111317', border_color=COLORS['edge'], text_color=COLORS['text'], corner_radius=10, font=ctk.CTkFont(family='Segoe UI', size=12))
         self.badge_color_entry.pack(side='left', padx=8)
-        self.color_swatch = ctk.CTkButton(color_row, text='', width=34, height=30, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover'], command=self._choose_badge_color)
+        self.color_swatch = self._button(color_row, text='', width=36, height=32, primary=True, command=self._choose_badge_color, corner_radius=10)
         self.color_swatch.pack(side='left')
-        ctk.CTkButton(tab, text='Save activity settings', command=self._save_artwork_settings, height=40, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).grid(row=2, column=0, columnspan=2, sticky='ew', padx=18, pady=(10, 16))
+        self._button(tab, text='Save activity settings', command=self._save_artwork_settings, primary=True, height=44).grid(row=2, column=0, columnspan=2, sticky='ew', padx=18, pady=(10, 16))
 
     def _build_preferences_tab(self) -> None:
-        tab = ctk.CTkScrollableFrame(self.tabs.tab('Preferences'), fg_color='transparent', corner_radius=0)
+        tab = ctk.CTkScrollableFrame(self.tabs.tab('Settings'), fg_color='transparent', corner_radius=0)
         tab.pack(fill='both', expand=True)
         tab.grid_columnconfigure((0, 1), weight=1)
         top = self._section_title(tab, 'Preferences', 'Tune how GhostyFlix runs, checks for playback changes, and receives releases.')
         top.grid(row=0, column=0, columnspan=2, sticky='ew', padx=18, pady=(18, 12))
-        playback = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], corner_radius=14)
+        playback = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=18)
         playback.grid(row=1, column=0, sticky='nsew', padx=(18, 8), pady=8)
-        startup = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], corner_radius=14)
+        startup = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=18)
         startup.grid(row=1, column=1, sticky='nsew', padx=(8, 18), pady=8)
-        ctk.CTkLabel(playback, text='PLAYBACK CHECKS', text_color=COLORS['orange'], font=ctk.CTkFont(size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 6))
+        ctk.CTkLabel(playback, text='PLAYBACK CHECKS', text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 6))
         self.poll_var = tk.StringVar(value=str(self.settings.polling_rate))
         self.seek_var = tk.StringVar(value=str(self.settings.seek_threshold))
         self._stepper(playback, 'Playback check interval (seconds)', self.poll_var)
         self._stepper(playback, 'Seek refresh sensitivity (seconds)', self.seek_var)
-        ctk.CTkLabel(playback, text='Both values start at 3 seconds. Lower values can feel faster and create more server requests.', text_color=COLORS['muted'], wraplength=420, justify='left', font=ctk.CTkFont(size=11)).pack(anchor='w', padx=16, pady=(10, 16))
-        ctk.CTkLabel(startup, text='WINDOW BEHAVIOR', text_color=COLORS['orange'], font=ctk.CTkFont(size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 7))
+        ctk.CTkLabel(playback, text='Both values start at 3 seconds. Lower values can feel faster and create more server requests.', text_color=COLORS['muted'], wraplength=420, justify='left', font=ctk.CTkFont(family='Segoe UI', size=11)).pack(anchor='w', padx=16, pady=(10, 16))
+        ctk.CTkLabel(startup, text='WINDOW BEHAVIOR', text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold')).pack(anchor='w', padx=16, pady=(15, 7))
         self.start_minimized_var = tk.BooleanVar(value=self.settings.start_minimized)
         self.close_to_tray_var = tk.BooleanVar(value=self.settings.close_to_tray)
         self.open_on_startup_var = tk.BooleanVar(value=self.settings.open_on_startup)
         for label, variable in (
             ('Start minimized', self.start_minimized_var),
-            ('Keep running when the window closes', self.close_to_tray_var),
+            ('Minimize to system tray when the window closes', self.close_to_tray_var),
             ('Open GhostyFlix when Windows starts', self.open_on_startup_var),
         ):
-            ctk.CTkCheckBox(startup, text=label, variable=variable, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=7)
-        ctk.CTkLabel(startup, text='Closing to tray requires tray support in your desktop environment.', text_color=COLORS['muted'], wraplength=400, justify='left', font=ctk.CTkFont(size=11)).pack(anchor='w', padx=16, pady=(3, 15))
+            self._checkbox(startup, text=label, variable=variable, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=7)
+        ctk.CTkLabel(startup, text='Closing to tray requires tray support in your desktop environment.', text_color=COLORS['muted'], wraplength=400, justify='left', font=ctk.CTkFont(family='Segoe UI', size=11)).pack(anchor='w', padx=16, pady=(3, 15))
 
-        updater = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], corner_radius=14)
+        updater = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=18)
         updater.grid(row=2, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 10))
         updater.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(updater, text='ONLINE UPDATES', text_color=COLORS['orange'], font=ctk.CTkFont(size=11, weight='bold')).grid(row=0, column=0, sticky='w', padx=16, pady=(14, 4))
+        ctk.CTkLabel(updater, text='ONLINE UPDATES', text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold')).grid(row=0, column=0, sticky='w', padx=16, pady=(14, 4))
         ctk.CTkLabel(updater, text='Check public GitHub Releases and install a verified Windows build from inside the app.', text_color=COLORS['muted'], anchor='w', wraplength=650, justify='left').grid(row=1, column=0, sticky='ew', padx=16, pady=(0, 10))
         self.repository_entry = self._entry(updater, 'GitHub repository as owner/name')
         self.repository_entry.grid(row=2, column=0, sticky='ew', padx=16, pady=(0, 13))
         self.auto_update_var = tk.BooleanVar(value=self.settings.automatic_updates)
-        ctk.CTkCheckBox(updater, text='Check for updates when GhostyFlix starts', variable=self.auto_update_var, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).grid(row=0, column=1, rowspan=2, sticky='ne', padx=16, pady=15)
-        self.update_button = ctk.CTkButton(updater, text='Check now', command=self._check_for_updates, width=130, height=36, fg_color='#343B45', hover_color='#414B58')
+        self._checkbox(updater, text='Check for updates when GhostyFlix starts', variable=self.auto_update_var, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).grid(row=0, column=1, rowspan=2, sticky='ne', padx=16, pady=15)
+        self.update_button = self._button(updater, text='Check now', command=self._check_for_updates, width=130, height=38)
         self.update_button.grid(row=2, column=1, sticky='e', padx=(8, 16), pady=(0, 13))
-        self.install_button = ctk.CTkButton(updater, text='Install & restart', command=self._install_update, width=150, height=36, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover'], state='disabled')
+        self.install_button = self._button(updater, text='Install & restart', command=self._install_update, primary=True, width=150, height=38, state='disabled')
         self.install_button.grid(row=2, column=2, sticky='e', padx=(0, 16), pady=(0, 13))
-        self.update_progress = ctk.CTkProgressBar(updater, height=7, progress_color=COLORS['orange'], fg_color='#333A43')
+        self.update_progress = ctk.CTkProgressBar(updater, height=7, progress_color=COLORS['orange'], fg_color=COLORS['button'])
         self.update_progress.grid(row=3, column=0, columnspan=3, sticky='ew', padx=16, pady=(0, 14))
         self.update_progress.set(0)
-        diagnostics = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], corner_radius=14)
+        diagnostics = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=18)
         diagnostics.grid(row=3, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 10))
         diagnostics.grid_columnconfigure(1, weight=1)
-        ctk.CTkLabel(diagnostics, text='DIAGNOSTICS', text_color=COLORS['orange'], font=ctk.CTkFont(size=11, weight='bold')).grid(row=0, column=0, sticky='w', padx=16, pady=(14, 4))
+        ctk.CTkLabel(diagnostics, text='DIAGNOSTICS', text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold')).grid(row=0, column=0, sticky='w', padx=16, pady=(14, 4))
         ctk.CTkLabel(diagnostics, text='Choose how much detail to write to the local activity log.', text_color=COLORS['muted'], anchor='w').grid(row=1, column=0, sticky='w', padx=16, pady=(0, 13))
         self.log_level_var = tk.StringVar(value=self.settings.log_level)
-        ctk.CTkOptionMenu(diagnostics, values=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], variable=self.log_level_var, width=145, fg_color='#343B45', button_color=COLORS['orange'], button_hover_color=COLORS['orange_hover']).grid(row=0, column=1, sticky='e', padx=16, pady=(12, 4))
+        self._option_menu(diagnostics, values=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], variable=self.log_level_var, width=145, fg_color=COLORS['button'], button_color=COLORS['orange'], button_hover_color=COLORS['orange_hover'], corner_radius=10).grid(row=0, column=1, sticky='e', padx=16, pady=(12, 4))
         actions = ctk.CTkFrame(diagnostics, fg_color='transparent')
         actions.grid(row=0, column=2, rowspan=2, sticky='e', padx=(8, 16), pady=12)
-        ctk.CTkButton(actions, text='Open settings folder', command=self._open_settings_folder, height=34, fg_color='#343B45', hover_color='#414B58').pack(side='left', padx=(0, 7))
-        ctk.CTkButton(actions, text='Open activity log', command=self._open_activity_log, height=34, fg_color='#343B45', hover_color='#414B58').pack(side='left')
-        ctk.CTkButton(tab, text='Save preferences', command=self._save_preferences, height=40, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).grid(row=4, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 16))
+        self._button(actions, text='Open settings folder', command=self._open_settings_folder, height=36).pack(side='left', padx=(0, 7))
+        self._button(actions, text='Open activity log', command=self._open_activity_log, height=36).pack(side='left')
+        self._button(tab, text='Save preferences', command=self._save_preferences, primary=True, height=44).grid(row=4, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 16))
 
     def _section_title(self, parent: Any, title: str, description: str) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(parent, fg_color='transparent')
-        ctk.CTkLabel(frame, text=title, font=ctk.CTkFont(size=20, weight='bold'), text_color=COLORS['text']).pack(anchor='w')
-        ctk.CTkLabel(frame, text=description, text_color=COLORS['muted'], wraplength=830, justify='left').pack(anchor='w', pady=(4, 0))
+        ctk.CTkLabel(frame, text=title, font=ctk.CTkFont(family='Segoe UI', size=21, weight='bold'), text_color=COLORS['text']).pack(anchor='w')
+        ctk.CTkLabel(frame, text=description, font=ctk.CTkFont(family='Segoe UI', size=12), text_color=COLORS['muted'], wraplength=830, justify='left').pack(anchor='w', pady=(4, 0))
         return frame
 
+    def _button(
+        self,
+        parent: Any,
+        text: str,
+        command: Any,
+        *,
+        primary: bool = False,
+        quiet: bool = False,
+        **options: Any,
+    ) -> ctk.CTkButton:
+        if quiet:
+            style: dict[str, Any] = {
+                'fg_color': 'transparent', 'hover_color': COLORS['orange_soft'],
+                'text_color': COLORS['orange'], 'border_width': 0,
+            }
+        elif primary:
+            style = {
+                'fg_color': COLORS['orange'], 'hover_color': COLORS['orange_hover'],
+                'text_color': '#17100C', 'border_width': 0,
+            }
+        else:
+            style = {
+                'fg_color': COLORS['button'], 'hover_color': COLORS['button_hover'],
+                'text_color': COLORS['text'], 'border_width': 1, 'border_color': COLORS['edge'],
+            }
+        style.update({
+            'height': 42,
+            'corner_radius': 13,
+            'font': ctk.CTkFont(family='Segoe UI', size=12, weight='bold'),
+        })
+        style.update(options)
+        return ctk.CTkButton(parent, text=text, command=command, **style)
+
     def _entry(self, parent: Any, placeholder: str, show: str | None = None) -> ctk.CTkEntry:
-        return ctk.CTkEntry(parent, height=38, placeholder_text=placeholder, show=show, border_color=COLORS['edge'], fg_color='#15191E', text_color=COLORS['text'], placeholder_text_color='#74808C')
+        entry = ctk.CTkEntry(parent, height=42, placeholder_text=placeholder, show=show, border_color=COLORS['edge'], fg_color='#111317', text_color=COLORS['text'], placeholder_text_color='#747B84', corner_radius=12, font=ctk.CTkFont(family='Segoe UI', size=12))
+        # CTkEntry (including the pinned 6.x build) does not accept focus_color.
+        # Keep its supported border styling so startup works across supported CTk versions.
+        return entry
+
+    def _checkbox(self, parent: Any, **options: Any) -> ctk.CTkCheckBox:
+        style: dict[str, Any] = {
+            'font': ctk.CTkFont(family='Segoe UI', size=12),
+            'text_color': COLORS['text'],
+            'fg_color': COLORS['orange'],
+            'hover_color': COLORS['orange_hover'],
+            'border_color': COLORS['edge'],
+            'corner_radius': 5,
+            'checkbox_width': 18,
+            'checkbox_height': 18,
+        }
+        style.update(options)
+        return ctk.CTkCheckBox(parent, **style)
+
+    def _option_menu(self, parent: Any, **options: Any) -> ctk.CTkOptionMenu:
+        style: dict[str, Any] = {
+            'height': 38,
+            'corner_radius': 11,
+            'fg_color': COLORS['button'],
+            'button_color': COLORS['orange'],
+            'button_hover_color': COLORS['orange_hover'],
+            'text_color': COLORS['text'],
+            'font': ctk.CTkFont(family='Segoe UI', size=12),
+            'dropdown_fg_color': COLORS['panel_alt'],
+            'dropdown_hover_color': COLORS['orange_soft'],
+            'dropdown_text_color': COLORS['text'],
+            'dropdown_font': ctk.CTkFont(family='Segoe UI', size=12),
+        }
+        style.update(options)
+        return ctk.CTkOptionMenu(parent, **style)
 
     def _labeled_entry(self, parent: Any, row: int, column: int, label: str, placeholder: str, columnspan: int = 1) -> ctk.CTkEntry:
         box = ctk.CTkFrame(parent, fg_color='transparent')
         box.grid(row=row, column=column, columnspan=columnspan, sticky='ew', padx=18, pady=(0, 8))
-        ctk.CTkLabel(box, text=label, text_color=COLORS['muted'], font=ctk.CTkFont(size=12, weight='bold')).pack(anchor='w', pady=(0, 6))
+        ctk.CTkLabel(box, text=label, text_color=COLORS['muted'], font=ctk.CTkFont(family='Segoe UI', size=12, weight='bold')).pack(anchor='w', pady=(0, 6))
         entry = self._entry(box, placeholder)
         entry.pack(fill='x')
         return entry
@@ -385,15 +514,15 @@ class GhostyFlixApp(ctk.CTk):
         row = ctk.CTkFrame(parent, fg_color='transparent')
         row.pack(fill='x', padx=12, pady=(0, 8))
         ctk.CTkLabel(row, text=label, text_color=COLORS['muted']).pack(side='left', padx=4)
-        ctk.CTkOptionMenu(row, values=values, variable=variable, width=86, fg_color='#343B45', button_color=COLORS['orange'], button_hover_color=COLORS['orange_hover']).pack(side='right', padx=4)
+        self._option_menu(row, values=values, variable=variable, width=86, fg_color=COLORS['button'], button_color=COLORS['orange'], button_hover_color=COLORS['orange_hover'], corner_radius=10).pack(side='right', padx=4)
 
     def _stepper(self, parent: Any, label: str, variable: tk.StringVar) -> None:
         row = ctk.CTkFrame(parent, fg_color='transparent')
         row.pack(fill='x', padx=16, pady=(5, 7))
         ctk.CTkLabel(row, text=label, text_color=COLORS['text'], anchor='w').pack(side='left', fill='x', expand=True)
-        ctk.CTkButton(row, text='−', command=lambda: self._step_value(variable, -1), width=34, height=32, fg_color='#343B45', hover_color='#414B58').pack(side='left', padx=(5, 2))
-        ctk.CTkLabel(row, textvariable=variable, width=34, text_color=COLORS['text'], font=ctk.CTkFont(size=14, weight='bold')).pack(side='left')
-        ctk.CTkButton(row, text='+', command=lambda: self._step_value(variable, 1), width=34, height=32, fg_color='#343B45', hover_color='#414B58').pack(side='left', padx=(2, 0))
+        self._button(row, text='−', command=lambda: self._step_value(variable, -1), width=36, height=34).pack(side='left', padx=(5, 2))
+        ctk.CTkLabel(row, textvariable=variable, width=34, text_color=COLORS['text'], font=ctk.CTkFont(family='Segoe UI', size=14, weight='bold')).pack(side='left')
+        self._button(row, text='+', command=lambda: self._step_value(variable, 1), width=36, height=34).pack(side='left', padx=(2, 0))
 
     @staticmethod
     def _step_value(variable: tk.StringVar, amount: int) -> None:
@@ -423,9 +552,11 @@ class GhostyFlixApp(ctk.CTk):
         if value == 'Quick Connect':
             self.quick_panel.grid()
             self.api_panel.grid_remove()
+            self.connect_button.grid_remove()
         else:
             self.api_panel.grid()
             self.quick_panel.grid_remove()
+            self.connect_button.grid()
 
     def _connect_selected(self) -> None:
         if self.auth_mode.get() == 'Quick Connect':
@@ -448,15 +579,29 @@ class GhostyFlixApp(ctk.CTk):
         self.status_text.configure(text='Checking your Jellyfin sign-in…')
 
     def _start_quick_connect(self) -> None:
+        if self._quick_connect_pending:
+            return
         server = self._validated_server()
         if not server:
             return
-        self.settings.jellyfin_host = server
-        self.settings.save()
-        self.service.update_settings(self.settings)
-        self.quick_code_label.configure(text='Getting code…')
-        self.service.connect_quick(server)
-        self.status_text.configure(text='Contacting Jellyfin…')
+        self._quick_connect_pending = True
+        self.quick_code_label.configure(text='Requesting…')
+        self.quick_feedback.configure(text='Contacting your Jellyfin server. This usually takes a few seconds.', text_color=COLORS['muted'])
+        self.quick_code_button.configure(state='disabled', text='Requesting code…')
+        self.copy_code_button.configure(state='disabled')
+        try:
+            self.settings.jellyfin_host = server
+            self.settings.save()
+            self.service.update_settings(self.settings)
+            self.service.connect_quick(server)
+            self.status_text.configure(text='Contacting Jellyfin…')
+        except Exception as exc:
+            self._quick_connect_pending = False
+            message = f'Could not start Quick Connect: {exc}'
+            self.quick_code_label.configure(text='— — — — — —')
+            self.quick_feedback.configure(text=message[:240], text_color=COLORS['red'])
+            self.quick_code_button.configure(state='normal', text='Try Quick Connect again')
+            self.status_text.configure(text=message[:160])
 
     def _validated_server(self) -> str:
         value = self.server_entry.get().strip().rstrip('/')
@@ -505,7 +650,7 @@ class GhostyFlixApp(ctk.CTk):
         value = self.badge_color_entry.get().strip()
         if len(value) == 7 and value.startswith('#') and all(char in '0123456789abcdefABCDEF' for char in value[1:]):
             return value.upper()
-        return '#F97316'
+        return COLORS['orange']
 
     def _choose_badge_color(self) -> None:
         picked = colorchooser.askcolor(color=self._validated_color(), parent=self)
@@ -586,7 +731,7 @@ class GhostyFlixApp(ctk.CTk):
         window.geometry('440x500')
         window.transient(self)
         window.grab_set()
-        ctk.CTkLabel(window, text='Choose where playback can appear', font=ctk.CTkFont(size=19, weight='bold'), text_color=COLORS['text']).pack(anchor='w', padx=20, pady=(20, 5))
+        ctk.CTkLabel(window, text='Choose where playback can appear', font=ctk.CTkFont(family='Segoe UI', size=19, weight='bold'), text_color=COLORS['text']).pack(anchor='w', padx=20, pady=(20, 5))
         ctk.CTkLabel(window, text='Blacklist hides checked libraries. Whitelist shows only checked libraries.', text_color=COLORS['muted'], wraplength=390, justify='left').pack(anchor='w', padx=20, pady=(0, 13))
         self.filter_mode_var = tk.StringVar(value='Blacklist' if self.settings.filter_mode == 'blacklist' else 'Whitelist')
         ctk.CTkSegmentedButton(window, values=['Blacklist', 'Whitelist'], variable=self.filter_mode_var, selected_color=COLORS['orange'], selected_hover_color=COLORS['orange_hover']).pack(anchor='w', padx=20, pady=(0, 12))
@@ -599,11 +744,11 @@ class GhostyFlixApp(ctk.CTk):
             identifier = item['id']
             variable = tk.BooleanVar(value=identifier in self._selected_library_ids)
             self._library_vars[identifier] = variable
-            ctk.CTkCheckBox(listing, text=item['name'], variable=variable, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=12, pady=7)
+            self._checkbox(listing, text=item['name'], variable=variable, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=12, pady=7)
         actions = ctk.CTkFrame(window, fg_color='transparent')
         actions.pack(fill='x', padx=20, pady=16)
-        ctk.CTkButton(actions, text='Cancel', command=window.destroy, fg_color='#343B45', hover_color='#414B58').pack(side='right', padx=(8, 0))
-        ctk.CTkButton(actions, text='Save filters', command=lambda: self._save_library_filter(window), fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(side='right')
+        self._button(actions, text='Cancel', command=window.destroy).pack(side='right', padx=(8, 0))
+        self._button(actions, text='Save filters', command=lambda: self._save_library_filter(window), primary=True).pack(side='right')
 
     def _save_library_filter(self, window: ctk.CTkToplevel) -> None:
         self._selected_library_ids = {identifier for identifier, variable in self._library_vars.items() if variable.get()}
@@ -636,13 +781,43 @@ class GhostyFlixApp(ctk.CTk):
                     text = str(event.get('text') or 'Something went wrong.')
                     self.status_text.configure(text=text[:160])
                     logging.warning('Service error: %s', text[:300])
+                elif kind == 'quick_error':
+                    text = str(event.get('text') or 'Quick Connect could not complete. Try again or use API key sign-in.')
+                    preserve_code = bool(event.get('preserve_code')) and bool(self.quick_code_label.cget('text').strip(' —'))
+                    self._quick_connect_pending = False
+                    if not preserve_code:
+                        self.quick_code_label.configure(text='— — — — — —')
+                    self.quick_feedback.configure(text=text[:240], text_color=COLORS['red'])
+                    self.quick_code_button.configure(
+                        state='normal', text='Request another code' if preserve_code else 'Try Quick Connect again'
+                    )
+                    self.copy_code_button.configure(state='normal' if preserve_code else 'disabled')
+                    self.status_text.configure(text=text[:160])
+                    logging.warning('Quick Connect failed: %s', text[:300])
                 elif kind == 'quick_code':
                     self.quick_code_label.configure(text=str(event.get('code') or ''))
-                    self.status_text.configure(text='Approve the code from a signed-in Jellyfin device.')
+                    self._quick_connect_pending = False
+                    self.quick_feedback.configure(text='On a signed-in Jellyfin device, open the user menu → Quick Connect, enter this code, and approve.', text_color=COLORS['orange'])
+                    self.quick_code_button.configure(state='normal', text='Request another code')
+                    self.copy_code_button.configure(state='normal')
+                    self.status_text.configure(text='Code ready · approve it from a signed-in Jellyfin device.')
                 elif kind == 'connected':
                     self.connection_pill.configure(text=f'●  Connected · {event.get("name") or "Jellyfin"}', text_color=COLORS['green'])
                     self.quick_code_label.configure(text='Connected ✓')
+                    self._quick_connect_pending = False
+                    self.quick_feedback.configure(text='Account linked. GhostyFlix is watching for playback.', text_color=COLORS['green'])
+                    self.quick_code_button.configure(state='normal', text='Connect another account')
+                    self.copy_code_button.configure(state='disabled')
+                    self.disconnect_button.grid()
                     self.status_text.configure(text=f'Connected to {event.get("server") or "Jellyfin"}.')
+                elif kind == 'disconnected':
+                    self.connection_pill.configure(text='●  Not connected', text_color=COLORS['muted'])
+                    self.quick_code_label.configure(text='— — — — — —')
+                    self.quick_feedback.configure(text='Connect to Jellyfin to start sharing playback.', text_color=COLORS['muted'])
+                    self.quick_code_button.configure(state='normal', text='Get a Quick Connect code')
+                    self.copy_code_button.configure(state='disabled')
+                    self.disconnect_button.grid_remove()
+                    self.status_text.configure(text='Disconnected from Jellyfin.')
                 elif kind == 'playback':
                     self._render_playback(
                         event.get('media'), str(event.get('poster') or ''), event.get('preview_art')
@@ -690,12 +865,13 @@ class GhostyFlixApp(ctk.CTk):
             self.elapsed_label.configure(text='0:00')
             self.duration_label.configure(text='0:00')
             self.preview_progress.set(0)
-            self.poster_label.configure(image=None, text='GHOSTYFLIX')
+            self.poster_label.configure(image=self._poster_placeholder_image, text='')
             self._poster_image = None
             self._poster_source = None
             self._loaded_poster_url = ''
             return
-        heading = f'{"LISTENING TO" if media.media_type == "Music" else "WATCHING"} {media.server_name.upper()}'
+        server_label = media.server_name if self.settings.show_server_name else 'GhostyFlix'
+        heading = f'{"LISTENING TO" if media.media_type == "Music" else "WATCHING"} {server_label.upper()}'
         self.preview_heading.configure(text=heading[:80])
         display_title = media.title
         if media.media_type == 'Movie' and media.year:
@@ -721,24 +897,51 @@ class GhostyFlixApp(ctk.CTk):
             if self._poster_source is not None:
                 self._set_preview_image(self._poster_source)
         else:
-            self.poster_label.configure(image=None, text='LOADING ART…' if poster_url else 'GHOSTYFLIX')
+            self.poster_label.configure(image=None, text='LOADING ARTWORK…' if poster_url else '')
         if poster_url and poster_url != self._loaded_poster_url:
             threading.Thread(target=self._download_preview_image, args=(poster_url,), daemon=True).start()
 
+    def _make_placeholder_image(self, logo: Image.Image) -> ctk.CTkImage:
+        width, height = 176, 234
+        artwork = Image.new('RGBA', (width, height), '#101216')
+        glow = Image.new('RGBA', artwork.size, (0, 0, 0, 0))
+        glow_pixels = glow.load()
+        for y in range(height):
+            for x in range(width):
+                distance = ((x - width / 2) ** 2 + (y - 98) ** 2) ** 0.5
+                alpha = int(max(0, 32 * (1 - distance / 100)))
+                glow_pixels[x, y] = (255, 105, 36, alpha)
+        artwork = Image.alpha_composite(artwork, glow)
+        draw = ImageDraw.Draw(artwork)
+        draw.ellipse((26, 36, 150, 160), outline=(255, 133, 70, 34), width=1)
+        draw.ellipse((34, 44, 142, 152), outline=(255, 255, 255, 15), width=1)
+        draw.line((22, 181, 154, 181), fill=(255, 255, 255, 28), width=1)
+        draw.rounded_rectangle((22, 193, 94, 196), radius=2, fill=COLORS['orange'])
+        draw.rounded_rectangle((100, 193, 154, 196), radius=2, fill=(255, 255, 255, 24))
+        icon = logo.convert('RGBA').resize((96, 96), Image.Resampling.LANCZOS)
+        icon_mask = Image.new('L', icon.size, 0)
+        ImageDraw.Draw(icon_mask).rounded_rectangle((0, 0, 95, 95), radius=18, fill=255)
+        icon.putalpha(icon_mask)
+        artwork.alpha_composite(icon, (40, 50))
+        return ctk.CTkImage(light_image=artwork, dark_image=artwork, size=(width, height))
+
     def _set_preview_image(self, source: Image.Image) -> None:
-        image = source.convert('RGBA').resize((148, 196), Image.Resampling.LANCZOS)
+        image = ImageOps.fit(source.convert('RGBA'), (176, 234), method=Image.Resampling.LANCZOS)
         media = self._active_media
         if self.settings.show_playback_badge and media is not None:
             draw = ImageDraw.Draw(image)
-            left, top = 96, 144
-            draw.ellipse((left - 3, top - 3, left + 51, top + 51), fill='#090B0E')
-            draw.ellipse((left, top, left + 48, top + 48), fill=self._validated_color())
+            left, top = 116, 172
+            draw.ellipse((left - 4, top - 4, left + 54, top + 54), fill='#090A0D')
+            draw.ellipse((left, top, left + 50, top + 50), fill=self._validated_color())
             if media.paused:
-                draw.rounded_rectangle((left + 15, top + 12, left + 22, top + 36), radius=2, fill='#FFFFFF')
-                draw.rounded_rectangle((left + 27, top + 12, left + 34, top + 36), radius=2, fill='#FFFFFF')
+                draw.rounded_rectangle((left + 15, top + 12, left + 23, top + 38), radius=3, fill='#FFFFFF')
+                draw.rounded_rectangle((left + 28, top + 12, left + 36, top + 38), radius=3, fill='#FFFFFF')
             else:
-                draw.polygon(((left + 18, top + 11), (left + 18, top + 37), (left + 37, top + 24)), fill='#FFFFFF')
-        self._poster_image = ctk.CTkImage(light_image=image, dark_image=image, size=(148, 196))
+                draw.polygon(((left + 18, top + 11), (left + 18, top + 39), (left + 39, top + 25)), fill='#FFFFFF')
+        mask = Image.new('L', (176, 234), 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, 175, 233), radius=16, fill=255)
+        image.putalpha(mask)
+        self._poster_image = ctk.CTkImage(light_image=image, dark_image=image, size=(176, 234))
         self.poster_label.configure(image=self._poster_image, text='')
 
     def _download_preview_image(self, url: str) -> None:
@@ -747,7 +950,7 @@ class GhostyFlixApp(ctk.CTk):
             response = requests.get(url, timeout=8)
             response.raise_for_status()
             image = Image.open(io.BytesIO(response.content)).convert('RGBA')
-            image.thumbnail((148, 196), Image.Resampling.LANCZOS)
+            image.thumbnail((176, 234), Image.Resampling.LANCZOS)
             self._events.put({'type': 'poster_image', 'url': url, 'image': image})
         except Exception:
             self._events.put({'type': 'poster_image', 'url': url, 'image': None})
@@ -769,7 +972,7 @@ class GhostyFlixApp(ctk.CTk):
 
     def _preview_status_text(self, media: MediaSession, percent: int | None = None, remaining: int | None = None) -> str:
         values = ['Paused' if media.paused else 'Playing']
-        if self.settings.show_progress_text and media.duration_seconds:
+        if media.duration_seconds:
             pct = int(media.progress * 100) if percent is None else percent
             left = media.remaining_seconds if remaining is None else remaining
             values.extend((f'{pct}% watched', f'{format_clock(left)} left'))

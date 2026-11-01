@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.3 — 2026-11-01
+
+- Minimize to the system tray when the window closes by default, with a clear preference to change the behavior.
+- Use the configured Jellyfin server name in the Discord headline and remove the redundant server suffix after the genre.
+- Improve the visibility of the play/pause badge in Discord.
+- Refine the orange-and-charcoal interface and fix a CustomTkinter startup crash.
+
 ## 2.0.2 — 2026-11-01
 
 - Fix a startup crash caused by an unsupported CustomTkinter label option.

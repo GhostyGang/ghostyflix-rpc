@@ -8,6 +8,7 @@ a = Analysis(
     datas=[
         ('assets/icon.png', 'assets'),
         ('assets/icon.ico', 'assets'),
+        ('assets/ghostyflix-hero.png', 'assets'),
         ('assets/tmdb-approved-logo.png', 'assets'),
         *collect_data_files('customtkinter'),
         *collect_data_files('certifi'),

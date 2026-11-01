@@ -95,15 +95,17 @@ class PlaybackService:
         while not self._closed.is_set():
             try:
                 name, payload = self.commands.get(timeout=0.2)
-                self._handle_command(name, payload)
             except queue.Empty:
-                pass
-            except Exception as exc:
-                self._emit('error', text=str(exc))
+                name = ''
+            if name:
+                try:
+                    self._handle_command(name, payload)
+                except Exception as exc:
+                    self._emit('quick_error' if name == 'quick' else 'error', text=str(exc))
             now = time.monotonic()
             if self._quick_secret and now >= self._quick_deadline:
                 self._quick_secret = ''
-                self._status('Quick Connect expired. Request a new code to try again.')
+                self._emit('quick_error', text='This Quick Connect code expired. Request a new one to continue.')
             elif self._quick_secret and now - self._last_quick_poll >= 2.0:
                 self._poll_quick_connect()
             interval = max(1, self._settings.polling_rate)
@@ -162,9 +164,17 @@ class PlaybackService:
             self._quick_secret = ''
             self._last_playback = None
             self._last_published = None
+            self._user_id = ''
+            self._user_name = ''
+            self._settings.jellyfin_token = ''
+            self._settings.jellyfin_api_key = ''
+            self._settings.jellyfin_user_id = ''
+            self._settings.jellyfin_username = ''
+            self._settings.save()
             self._clear_presence()
             self._status('Disconnected')
             self._emit('playback', media=None)
+            self._emit('disconnected')
             return
         if name == 'libraries':
             if not self._client or not self._user_id:
@@ -180,7 +190,11 @@ class PlaybackService:
                 self._complete_connection(self._client, token, user_id, user_name, self._client.base_url.rstrip('/'))
         except Exception as exc:
             self._quick_secret = ''
-            self._emit('error', text=f'Quick Connect failed: {exc}')
+            self._emit(
+                'quick_error',
+                text=f'Could not check Quick Connect approval: {exc}',
+                preserve_code=True,
+            )
 
     def _complete_connection(self, client: JellyfinClient, token: str, user_id: str, name: str, server: str) -> None:
         settings = self._settings
@@ -305,7 +319,7 @@ class PlaybackService:
             )
             self._rpc.update(
                 activity_type=activity_type,
-                name=media.server_name[:128],
+                name=(media.server_name if self._settings.show_server_name else 'GhostyFlix')[:128],
                 details=details[:128],
                 state=state[:128] if state else None,
                 large_image=normalize_public_image(poster) or 'https://raw.githubusercontent.com/GhostyGang/ghostyflix-rpc/main/assets/icon.png',
@@ -339,24 +353,26 @@ class PlaybackService:
             state = select_genres(media, self._settings.genre_limit)
             activity_type = ActivityType.WATCHING
         extras: list[str] = []
-        if self._settings.show_server_name:
-            extras.append(media.server_name)
         if self._settings.show_progress_text and media.duration_seconds:
             percent = int(media.progress * 100)
             verb = 'listened' if media.media_type == 'Music' else 'watched'
             extras.extend((f'{percent}% {verb}', f'{format_clock(media.remaining_seconds)} left'))
-        if extras:
-            state = ' · '.join(value for value in (state, *extras) if value)
         if media.paused:
-            state = 'Paused' + (f' · {state}' if state else '')
+            extras.insert(0, 'Paused')
+        if state:
+            extras.append(state)
+        state = ' · '.join(extras)
         return details, state, activity_type
 
     @staticmethod
     def _badge_url(paused: bool, color: str) -> str:
         candidate = color.lstrip('#')
-        safe = candidate if len(candidate) == 6 and all(char in '0123456789abcdefABCDEF' for char in candidate) else 'F97316'
-        symbol = '%E2%8F%B8' if paused else '%E2%96%B6'
-        return f'https://placehold.co/128x128/{safe}/FFFFFF.png?text={symbol}'
+        safe = candidate if len(candidate) == 6 and all(char in '0123456789abcdefABCDEF' for char in candidate) else 'FF7628'
+        # Keep the marks ASCII so the remote image service cannot drop them
+        # when its font lacks a Unicode media glyph. Black keeps the tiny marks
+        # legible against the orange badge in Discord.
+        symbol = '%7C%7C' if paused else '%3E'
+        return f'https://placehold.co/128x128/{safe}/111111.png?text={symbol}&font=roboto'
 
     def _ensure_rpc(self) -> bool:
         if self._rpc:

@@ -38,7 +38,7 @@ class Settings:
     show_progress_text: bool = True
     show_server_name: bool = False
     show_playback_badge: bool = True
-    badge_color: str = '#F97316'
+    badge_color: str = '#FF7628'
     polling_rate: int = 3
     seek_threshold: int = 3
     log_level: str = 'INFO'
@@ -49,7 +49,7 @@ class Settings:
     season_over_series: bool = False
     poster_languages: str = ''
     start_minimized: bool = False
-    close_to_tray: bool = False
+    close_to_tray: bool = True
     open_on_startup: bool = False
 
     @classmethod

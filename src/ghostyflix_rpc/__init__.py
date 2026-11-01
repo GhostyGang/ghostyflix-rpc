@@ -1,5 +1,5 @@
 """GhostyFlix RPC desktop client."""
 
-__version__ = '2.0.2'
+__version__ = '2.0.3'
 APP_NAME = 'GhostyFlix RPC'
 DISCORD_APPLICATION_ID = '1238889120672120853'
