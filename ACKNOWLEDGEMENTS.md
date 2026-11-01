@@ -1,5 +1,5 @@
 # Acknowledgements
 
-GhostyFlix RPC began as an early build based on [Jellyfin RPC](https://github.com/kennethsible/jellyfin-rpc). That project was a reference and foundation for GhostyFlix's original connection flow and playback features. We are grateful to its author and contributors for their work.
+An early GhostyFlix build incorporated and adapted code from [Jellyfin RPC](https://github.com/kennethsible/jellyfin-rpc) by Ken Sible. The original project is MIT licensed. Its copyright and license notice are retained in [LICENSE](LICENSE). We thank Ken and the project contributors for making their work available.
 
-GhostyFlix v2 has since been rewritten as a separate implementation and continues as an independent project. This acknowledgment recognizes the project's history and inspiration.
+GhostyFlix has since been substantially reworked, with a separate application architecture and additional implementation. This acknowledgment records the project's history and does not claim authorship of the upstream code used in early versions.

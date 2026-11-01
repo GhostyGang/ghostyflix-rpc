@@ -424,6 +424,7 @@ class GhostyFlixApp(ctk.CTk):
         actions.grid(row=0, column=2, rowspan=2, sticky='e', padx=(8, 16), pady=12)
         self._button(actions, text='Open settings folder', command=self._open_settings_folder, height=36).pack(side='left', padx=(0, 7))
         self._button(actions, text='Open activity log', command=self._open_activity_log, height=36).pack(side='left')
+        self._button(actions, text='View license notices', command=lambda: self._open_local_path(resource_path('LICENSE')), height=36).pack(side='left', padx=(7, 0))
         self._button(tab, text='Save preferences', command=self._save_preferences, primary=True, height=44).grid(row=4, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 16))
 
     def _section_title(self, parent: Any, title: str, description: str) -> ctk.CTkFrame:

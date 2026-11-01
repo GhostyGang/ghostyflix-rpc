@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.5 — 2026-11-01
+
+- Retain Ken Sible's MIT copyright notice alongside GhostyGang's.
+- Include the license notices in the Windows app and as a release download.
+- Add a Settings shortcut for viewing the license notices.
+
 ## 2.0.4 — 2026-11-01
 
 - Restore bold play and pause glyphs in the Discord artwork badge.

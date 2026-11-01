@@ -35,9 +35,10 @@ jobs:
           $file = "dist/GhostyFlix RPC.exe"
           $releaseFile = "dist/GhostyFlix.RPC.exe"
           Copy-Item -LiteralPath $file -Destination $releaseFile
-          $file = $releaseFile
-          $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
-          Set-Content -LiteralPath "dist/SHA256SUMS.txt" -Value "$hash  GhostyFlix.RPC.exe" -Encoding ascii
+          Copy-Item -LiteralPath "LICENSE" -Destination "dist/LICENSE.txt"
+          $exeHash = (Get-FileHash -LiteralPath $releaseFile -Algorithm SHA256).Hash.ToLowerInvariant()
+          $licenseHash = (Get-FileHash -LiteralPath "dist/LICENSE.txt" -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -LiteralPath "dist/SHA256SUMS.txt" -Value "$exeHash  GhostyFlix.RPC.exe`n$licenseHash  LICENSE.txt" -Encoding ascii
 
       - name: Publish GitHub release
         shell: pwsh
@@ -46,6 +47,7 @@ jobs:
         run: |
           gh release create $env:GITHUB_REF_NAME `
             "dist/GhostyFlix.RPC.exe" `
+            "dist/LICENSE.txt" `
             "dist/SHA256SUMS.txt" `
             --verify-tag `
             --generate-notes
