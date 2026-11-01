@@ -1,0 +1,48 @@
+name: Build and publish Windows release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install locked build dependencies
+        run: uv sync --locked --extra gui --no-dev
+
+      - name: Build desktop executable
+        run: uv run pyinstaller --noconfirm main.spec
+
+      - name: Create SHA-256 checksum
+        shell: pwsh
+        run: |
+          $file = "dist/GhostyFlix RPC.exe"
+          $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -LiteralPath "dist/SHA256SUMS.txt" -Value "$hash  GhostyFlix RPC.exe" -Encoding ascii
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME `
+            "dist/GhostyFlix RPC.exe" `
+            "dist/SHA256SUMS.txt" `
+            --verify-tag `
+            --generate-notes

@@ -1,0 +1,39 @@
+[project]
+name = "ghostyflix-rpc"
+version = "2.0.0"
+description = "A Windows desktop companion that shares Jellyfin playback on Discord"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "GhostyGang" }]
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.32.0",
+    "pypresence>=4.6.2",
+]
+
+[project.optional-dependencies]
+gui = [
+    "customtkinter>=5.2.2",
+    "Pillow>=10.0.0",
+    "pystray>=0.19.5",
+    "pyinstaller>=6.10.0",
+]
+
+[project.scripts]
+ghostyflix-rpc = "ghostyflix_rpc.app:run"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ghostyflix_rpc"]
+
+[build-system]
+requires = ["hatchling>=1.26.0"]
+build-backend = "hatchling.build"

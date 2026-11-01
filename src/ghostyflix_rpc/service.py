@@ -1,0 +1,378 @@
+from __future__ import annotations
+
+import queue
+import logging
+import threading
+import time
+from typing import Any
+
+from pypresence import Presence
+from pypresence.types import ActivityType
+
+from .artwork import ArtworkLookup, normalize_public_image, select_genres
+from .jellyfin import JellyfinClient, MediaSession
+from .settings import Settings
+from . import DISCORD_APPLICATION_ID
+
+
+def format_clock(seconds: int) -> str:
+    seconds = max(0, int(seconds))
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours:
+        return f'{hours} hr {minutes} min'
+    if minutes:
+        return f'{minutes} min'
+    return f'{seconds} sec'
+
+
+class PlaybackService:
+    """Owns Jellyfin polling and the local Discord IPC connection."""
+
+    def __init__(self, settings: Settings) -> None:
+        self.events: queue.Queue[dict[str, Any]] = queue.Queue()
+        self.commands: queue.Queue[tuple[str, Any]] = queue.Queue()
+        self._settings = settings
+        self._thread: threading.Thread | None = None
+        self._closed = threading.Event()
+        self._client: JellyfinClient | None = None
+        self._user_id = settings.jellyfin_user_id
+        self._user_name = settings.jellyfin_username
+        self._rpc: Presence | None = None
+        self._artwork = ArtworkLookup()
+        self._quick_secret = ''
+        self._quick_deadline = 0.0
+        self._last_quick_poll = 0.0
+        self._last_playback: MediaSession | None = None
+        self._last_published: tuple[Any, ...] | None = None
+        self._last_position = 0
+        self._last_update_time = 0.0
+        self._last_status = ''
+        self._library_cache: dict[str, tuple[str, ...]] = {}
+        self._preview_art_cache: dict[str, bytes] = {}
+        self._last_artwork_source = ''
+
+    def start(self) -> None:
+        if self._thread and self._thread.is_alive():
+            return
+        self._thread = threading.Thread(target=self._run, name='GhostyFlix playback', daemon=True)
+        self._thread.start()
+        if self._settings.jellyfin_host and self._settings.jellyfin_token and self._user_id:
+            self.commands.put(('resume', None))
+
+    def close(self) -> None:
+        self._closed.set()
+        self.commands.put(('close', None))
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=2)
+
+    def connect_quick(self, server: str) -> None:
+        self.commands.put(('quick', server))
+
+    def connect_api_key(self, server: str, username: str, api_key: str) -> None:
+        self.commands.put(('api', (server, username, api_key)))
+
+    def disconnect(self) -> None:
+        self.commands.put(('disconnect', None))
+
+    def update_settings(self, settings: Settings) -> None:
+        self.commands.put(('settings', settings))
+
+    def list_libraries(self) -> None:
+        self.commands.put(('libraries', None))
+
+    def _emit(self, kind: str, **values: Any) -> None:
+        self.events.put({'type': kind, **values})
+
+    def _status(self, text: str) -> None:
+        if text != self._last_status:
+            self._last_status = text
+            self._emit('status', text=text)
+
+    def _run(self) -> None:
+        next_poll = 0.0
+        while not self._closed.is_set():
+            try:
+                name, payload = self.commands.get(timeout=0.2)
+                self._handle_command(name, payload)
+            except queue.Empty:
+                pass
+            except Exception as exc:
+                self._emit('error', text=str(exc))
+            now = time.monotonic()
+            if self._quick_secret and now >= self._quick_deadline:
+                self._quick_secret = ''
+                self._status('Quick Connect expired. Request a new code to try again.')
+            elif self._quick_secret and now - self._last_quick_poll >= 2.0:
+                self._poll_quick_connect()
+            interval = max(1, self._settings.polling_rate)
+            if self._client and self._user_id and now >= next_poll:
+                self._poll_playback()
+                next_poll = now + interval
+        self._close_rpc()
+
+    def _handle_command(self, name: str, payload: Any) -> None:
+        if name == 'close':
+            return
+        if name == 'settings':
+            self._settings = payload
+            return
+        if name == 'quick':
+            server = str(payload).strip()
+            self._quick_secret = ''
+            self._status('Contacting Jellyfin…')
+            self._client = JellyfinClient(server)
+            body = self._client.initiate_quick_connect()
+            self._quick_secret = str(body['Secret'])
+            self._quick_deadline = time.monotonic() + 300
+            self._last_quick_poll = 0
+            self._status('Approve the code in Jellyfin to finish connecting.')
+            self._emit('quick_code', code=str(body['Code']))
+            return
+        if name == 'api':
+            server, username, key = payload
+            self._status('Checking your Jellyfin sign-in…')
+            client = JellyfinClient(server, key)
+            token, user_id, user_name = client.authenticate_api_key(key, username)
+            self._complete_connection(client, token, user_id, user_name, server)
+            return
+        if name == 'resume':
+            settings = self._settings
+            if settings.jellyfin_host and settings.jellyfin_token and settings.jellyfin_user_id:
+                self._client = JellyfinClient(settings.jellyfin_host, settings.jellyfin_token)
+                self._user_id = settings.jellyfin_user_id
+                self._user_name = settings.jellyfin_username
+                self._status(f'Connected as {self._user_name or "Jellyfin user"}. Waiting for playback…')
+                self._emit('connected', name=self._user_name, server=settings.jellyfin_host)
+            return
+        if name == 'disconnect':
+            self._client = None
+            self._quick_secret = ''
+            self._last_playback = None
+            self._last_published = None
+            self._clear_presence()
+            self._status('Disconnected')
+            self._emit('playback', media=None)
+            return
+        if name == 'libraries':
+            if not self._client or not self._user_id:
+                raise RuntimeError('Connect to Jellyfin before loading libraries.')
+            self._emit('libraries', items=self._client.list_libraries(self._user_id))
+
+    def _poll_quick_connect(self) -> None:
+        self._last_quick_poll = time.monotonic()
+        try:
+            if self._client and self._client.quick_connect_approved(self._quick_secret):
+                token, user_id, user_name = self._client.exchange_quick_connect(self._quick_secret)
+                self._quick_secret = ''
+                self._complete_connection(self._client, token, user_id, user_name, self._client.base_url.rstrip('/'))
+        except Exception as exc:
+            self._quick_secret = ''
+            self._emit('error', text=f'Quick Connect failed: {exc}')
+
+    def _complete_connection(self, client: JellyfinClient, token: str, user_id: str, name: str, server: str) -> None:
+        settings = self._settings
+        settings.jellyfin_host = server.rstrip('/')
+        settings.jellyfin_token = token
+        settings.jellyfin_user_id = user_id
+        settings.jellyfin_username = name
+        settings.jellyfin_api_key = ''
+        settings.save()
+        self._client = client
+        self._user_id = user_id
+        self._user_name = name
+        self._library_cache.clear()
+        self._preview_art_cache.clear()
+        self._last_published = None
+        self._status(f'Connected as {name}. Waiting for playback…')
+        self._emit('connected', name=name, server=settings.jellyfin_host)
+
+    def _poll_playback(self) -> None:
+        if not self._client:
+            return
+        try:
+            media = self._client.current_playback(self._user_id)
+        except Exception as exc:
+            self._status(f'Jellyfin connection paused: {exc}')
+            return
+        if media is None or not self._media_enabled(media):
+            self._last_playback = None
+            self._last_published = None
+            self._clear_presence()
+            self._status(f'Connected as {self._user_name}. Waiting for playback…')
+            self._emit('playback', media=None)
+            return
+        media.library_ids = self._library_cache.get(media.item_id, ())
+        if media.item_id not in self._library_cache:
+            try:
+                media.library_ids = self._client.item_libraries(self._user_id, media.item_id)
+                self._library_cache[media.item_id] = media.library_ids
+            except Exception:
+                pass
+        selected_libraries = {value for value in self._settings.filter_libraries.split(',') if value}
+        if selected_libraries:
+            overlaps = bool(selected_libraries.intersection(media.library_ids))
+            excluded = overlaps if self._settings.filter_mode == 'blacklist' else not overlaps
+            if excluded:
+                self._last_playback = None
+                self._last_published = None
+                self._clear_presence()
+                self._emit('playback', media=None)
+                return
+        if media.paused and not self._settings.show_when_paused:
+            self._last_playback = media
+            self._last_published = None
+            self._clear_presence()
+            self._emit('playback', media=media)
+            self._status(f'Paused: {media.title}')
+            return
+        poster = self._artwork.poster(media, self._client, self._settings)
+        if self._artwork.last_source and self._artwork.last_source != self._last_artwork_source:
+            self._last_artwork_source = self._artwork.last_source
+            logging.info('Artwork source selected: %s', self._last_artwork_source)
+        preview_art: bytes | None = None
+        if media.item_id in self._preview_art_cache:
+            preview_art = self._preview_art_cache[media.item_id]
+        elif poster.startswith(self._client.base_url):
+            try:
+                preview_art = self._client.item_image(media.item_id)
+                self._preview_art_cache[media.item_id] = preview_art
+            except Exception:
+                pass
+        self._emit('playback', media=media, poster=poster, preview_art=preview_art)
+        self._publish(media, poster)
+        self._status(('Paused' if media.paused else 'Watching') + f' · {media.title}')
+
+    def _media_enabled(self, media: MediaSession) -> bool:
+        return {
+            'Movie': self._settings.media_movies,
+            'Episode': self._settings.media_shows,
+            'Music': self._settings.media_music,
+        }.get(media.media_type, False)
+
+    def _publish(self, media: MediaSession, poster: str) -> None:
+        now_mono = time.monotonic()
+        if not self._ensure_rpc():
+            return
+        playback_changed = self._last_playback is None or self._last_playback.item_id != media.item_id
+        state_changed = self._last_playback is None or self._last_playback.paused != media.paused
+        elapsed_since_update = max(0, now_mono - self._last_update_time)
+        expected_position = self._last_position + int(elapsed_since_update)
+        sought = self._last_published is not None and abs(media.position_seconds - expected_position) >= self._settings.seek_threshold
+        refresh_progress = self._settings.show_progress_text and now_mono - self._last_update_time >= 60
+        signature = (
+            media.item_id, media.paused, poster, self._settings.show_playback_badge,
+            self._settings.badge_color, self._settings.show_progress_text,
+            self._settings.show_server_name, self._settings.genre_limit,
+            self._settings.show_jellyfin_logo,
+        )
+        if not (playback_changed or state_changed or sought or refresh_progress or signature != self._last_published):
+            self._last_playback = media
+            return
+        details, state, activity_type = self._activity_text(media)
+        badge = self._badge_url(media.paused, self._settings.badge_color)
+        start: int | None = None
+        end: int | None = None
+        if not media.paused and media.duration_seconds:
+            now_epoch = int(time.time())
+            start = now_epoch - media.position_seconds
+            end = now_epoch + media.remaining_seconds
+        try:
+            logo_url = 'https://raw.githubusercontent.com/GhostyGang/ghostyflix-rpc/main/assets/icon.png'
+            small_image = badge if self._settings.show_playback_badge else (
+                logo_url if self._settings.show_jellyfin_logo else None
+            )
+            small_text = (
+                ('Paused' if media.paused else 'Playing') + ' · GhostyFlix RPC'
+                if self._settings.show_playback_badge else
+                ('GhostyFlix RPC' if self._settings.show_jellyfin_logo else None)
+            )
+            self._rpc.update(
+                activity_type=activity_type,
+                name=media.server_name[:128],
+                details=details[:128],
+                state=state[:128] if state else None,
+                large_image=normalize_public_image(poster) or 'https://raw.githubusercontent.com/GhostyGang/ghostyflix-rpc/main/assets/icon.png',
+                large_text=f'{media.title} · GhostyFlix RPC'[:128],
+                small_image=small_image,
+                small_text=small_text,
+                start=start,
+                end=end,
+            )
+            self._last_position = media.position_seconds
+            self._last_update_time = now_mono
+            self._last_published = signature
+            self._last_playback = media
+            self._emit('presence', active=True)
+        except Exception as exc:
+            self._close_rpc()
+            self._status(f'Discord presence could not be updated: {exc}')
+
+    def _activity_text(self, media: MediaSession) -> tuple[str, str, ActivityType]:
+        if media.media_type == 'Music':
+            details = f'Listening to {media.title}'
+            state = ' · '.join(value for value in (media.artist, media.album) if value)
+            activity_type = ActivityType.LISTENING
+        elif media.media_type == 'Episode':
+            details = f'Watching {media.title}'
+            state = media.subtitle
+            activity_type = ActivityType.WATCHING
+        else:
+            year = f' ({media.year})' if media.year else ''
+            details = f'Watching {media.title}{year}'
+            state = select_genres(media, self._settings.genre_limit)
+            activity_type = ActivityType.WATCHING
+        extras: list[str] = []
+        if self._settings.show_server_name:
+            extras.append(media.server_name)
+        if self._settings.show_progress_text and media.duration_seconds:
+            percent = int(media.progress * 100)
+            verb = 'listened' if media.media_type == 'Music' else 'watched'
+            extras.extend((f'{percent}% {verb}', f'{format_clock(media.remaining_seconds)} left'))
+        if extras:
+            state = ' · '.join(value for value in (state, *extras) if value)
+        if media.paused:
+            state = 'Paused' + (f' · {state}' if state else '')
+        return details, state, activity_type
+
+    @staticmethod
+    def _badge_url(paused: bool, color: str) -> str:
+        candidate = color.lstrip('#')
+        safe = candidate if len(candidate) == 6 and all(char in '0123456789abcdefABCDEF' for char in candidate) else 'F97316'
+        symbol = '%E2%8F%B8' if paused else '%E2%96%B6'
+        return f'https://placehold.co/128x128/{safe}/FFFFFF.png?text={symbol}'
+
+    def _ensure_rpc(self) -> bool:
+        if self._rpc:
+            return True
+        try:
+            self._rpc = Presence(DISCORD_APPLICATION_ID)
+            self._rpc.connect()
+            self._emit('discord', connected=True)
+            return True
+        except Exception as exc:
+            self._rpc = None
+            if time.monotonic() - self._last_update_time > 10:
+                self._status(f'Open Discord desktop to publish your activity ({type(exc).__name__}).')
+                self._last_update_time = time.monotonic()
+            return False
+
+    def _clear_presence(self) -> None:
+        if self._rpc:
+            try:
+                self._rpc.clear()
+            except Exception:
+                self._close_rpc()
+        self._emit('presence', active=False)
+
+    def _close_rpc(self) -> None:
+        rpc, self._rpc = self._rpc, None
+        if rpc:
+            try:
+                rpc.clear()
+            except Exception:
+                pass
+            try:
+                rpc.close()
+            except Exception:
+                pass

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.tooling/
+.uv-cache/
+.vscode/
+build/
+dist/
+*.spec.bak
+*.log
+*.tmp
+*.new
+*.ini.local
