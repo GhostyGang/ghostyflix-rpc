@@ -62,7 +62,9 @@ Jellyfin album artwork is the default. Turn on **Prefer MusicBrainz album artwor
 - Include watched or listened percentage and estimated time remaining in the Discord status. The local preview always shows these values when Jellyfin provides a duration.
 - Optionally show your Jellyfin server name.
 - Show or hide the play/pause poster badge. Orange is the default badge color; enter a hex color or choose one from the color picker.
+- The custom badge uses the selected color as its background, with a centered black play/pause mark. Discord displays it as a circle. The image URL contains only the selected color and playback state.
 - Use the GhostyFlix mark as the small Discord activity image when the playback badge is hidden.
+- In **Settings → Discord Activity Links**, choose whether movie and episode cards include compact IMDb and trailer buttons. IMDb uses the ID from Jellyfin or OMDb. A direct trailer uses TMDB when its ID and API key are available; otherwise the button opens a YouTube trailer search.
 
 The **Now Playing** tab previews the current title, artwork, playback status, progress, and remaining time locally in GhostyFlix.
 
@@ -81,6 +83,7 @@ The **Now Playing** tab previews the current title, artwork, playback status, pr
 Movies appear as **Watching** with the title and year. Episodes use the series title with season, episode, and episode name. Music appears as **Listening** with the track and artist or album. When Jellyfin provides a duration, GhostyFlix sends timestamps for Discord's native timer and progress bar. The optional activity text adds a percentage and estimated time remaining.
 
 Discord controls the card's exact layout, bar design, image availability, and visibility to other people. GhostyFlix cannot customize Discord's native progress bar or card layout.
+IMDb and trailer links appear as buttons below the activity, not as extra title or status text. Buttons are omitted for music and can be disabled individually in Settings. Discord hides these buttons from the account viewing its own activity; ask a friend or use a second account to confirm they appear to other viewers.
 
 ## Online updates
 

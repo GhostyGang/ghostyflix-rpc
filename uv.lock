@@ -121,7 +121,7 @@ wheels = [
 
 [[package]]
 name = "ghostyflix-rpc"
-version = "2.0.5"
+version = "2.0.16"
 source = { editable = "." }
 dependencies = [
     { name = "pypresence" },

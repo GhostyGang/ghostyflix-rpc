@@ -4,7 +4,7 @@ import re
 import threading
 import time
 from typing import Any
-from urllib.parse import quote, urljoin, urlparse, urlunparse
+from urllib.parse import quote, quote_plus, urljoin, urlparse, urlunparse
 
 import requests
 
@@ -15,11 +15,88 @@ from .settings import Settings
 class ArtworkLookup:
     def __init__(self) -> None:
         self._cache: dict[str, tuple[float, str, str]] = {}
+        self._link_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
         self._musicbrainz_lock = threading.Lock()
         self._last_musicbrainz_request = 0.0
         self.last_source = ''
         self.http = requests.Session()
         self.http.headers.update({'User-Agent': 'GhostyFlixRPC/2.0 (https://github.com/GhostyGang/ghostyflix-rpc)'})
+
+    def activity_links(self, media: MediaSession, settings: Settings) -> list[dict[str, str]]:
+        if media.media_type not in {'Movie', 'Episode'}:
+            return []
+        cache_key = '|'.join((
+            media.item_id, media.title, str(media.year), media.imdb_id, media.tmdb_id,
+            settings.omdb_api_key, settings.tmdb_api_key,
+            str(settings.show_imdb_button), str(settings.show_trailer_button),
+        ))
+        cached = self._link_cache.get(cache_key)
+        if cached and cached[0] > time.monotonic():
+            return [dict(button) for button in cached[1]]
+
+        buttons: list[dict[str, str]] = []
+        if settings.show_imdb_button:
+            imdb_id = media.imdb_id or self._lookup_imdb_id(media, settings)
+            if re.fullmatch(r'tt\d{5,12}', imdb_id):
+                buttons.append({'label': 'IMDb', 'url': f'https://www.imdb.com/title/{imdb_id}/'})
+        if settings.show_trailer_button:
+            trailer_url = self._tmdb_trailer(media, settings) or self._youtube_search(media)
+            label = 'Trailer' if 'youtube.com/watch?' in trailer_url else 'Trailer search'
+            buttons.append({'label': label, 'url': trailer_url})
+
+        if len(self._link_cache) > 256:
+            now = time.monotonic()
+            self._link_cache = {key: value for key, value in self._link_cache.items() if value[0] > now}
+        self._link_cache[cache_key] = (time.monotonic() + 900, [dict(button) for button in buttons])
+        return buttons
+
+    def _lookup_imdb_id(self, media: MediaSession, settings: Settings) -> str:
+        key = self._extract_omdb_key(settings.omdb_api_key)
+        if not key:
+            return ''
+        params = {'apikey': key, 't': media.title}
+        if media.year:
+            params['y'] = str(media.year)
+        if media.media_type == 'Episode':
+            params['type'] = 'series'
+        try:
+            response = self.http.get('https://www.omdbapi.com/', params=params, timeout=6)
+            response.raise_for_status()
+            return str(response.json().get('imdbID') or '')
+        except (requests.RequestException, ValueError, AttributeError):
+            return ''
+
+    def _tmdb_trailer(self, media: MediaSession, settings: Settings) -> str:
+        key = settings.tmdb_api_key.strip()
+        identifier = media.tmdb_id
+        if not key or not identifier:
+            return ''
+        kind = 'tv' if media.media_type == 'Episode' else 'movie'
+        try:
+            response = self.http.get(
+                f'https://api.themoviedb.org/3/{kind}/{quote(identifier)}/videos',
+                params={'api_key': key}, timeout=6,
+            )
+            response.raise_for_status()
+            videos = response.json().get('results') or []
+        except (requests.RequestException, ValueError, AttributeError):
+            return ''
+        candidates = [
+            row for row in videos
+            if row.get('site') == 'YouTube' and row.get('type') == 'Trailer' and row.get('key')
+        ]
+        if not candidates:
+            return ''
+        candidates.sort(key=lambda row: (not bool(row.get('official')), row.get('iso_639_1') != 'en'))
+        return f'https://www.youtube.com/watch?v={quote(str(candidates[0]["key"]))}'
+
+    @staticmethod
+    def _youtube_search(media: MediaSession) -> str:
+        terms = [media.title, str(media.year) if media.year else '', 'official trailer']
+        if media.media_type == 'Episode' and media.subtitle:
+            terms.insert(1, media.subtitle)
+        query = quote_plus(' '.join(value for value in terms if value))
+        return f'https://www.youtube.com/results?search_query={query}'
 
     def poster(self, media: MediaSession, server: JellyfinClient, settings: Settings) -> str:
         cache_key = '|'.join((

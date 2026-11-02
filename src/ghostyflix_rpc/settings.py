@@ -36,6 +36,8 @@ class Settings:
     media_music: bool = True
     show_when_paused: bool = True
     show_progress_text: bool = True
+    show_imdb_button: bool = True
+    show_trailer_button: bool = True
     show_server_name: bool = False
     show_playback_badge: bool = True
     badge_color: str = '#FF7628'
@@ -63,6 +65,7 @@ class Settings:
         bool_names = {
             'musicbrainz_artwork', 'media_movies', 'media_shows', 'media_music',
             'show_when_paused', 'show_progress_text', 'show_server_name',
+            'show_imdb_button', 'show_trailer_button',
             'show_playback_badge', 'automatic_updates', 'show_jellyfin_logo',
             'release_over_group', 'textless_posters', 'season_over_series',
             'start_minimized', 'close_to_tray', 'open_on_startup',

@@ -1,5 +1,53 @@
 # Changelog
 
+## 2.0.16 — 2026-11-01
+
+- Enlarge the centered black play triangle while keeping the selected-color badge and existing pause mark.
+
+## 2.0.15 — 2026-11-01
+
+- Keep the larger play triangle within Discord's image URL limit and report badge publish status accurately.
+
+## 2.0.14 — 2026-11-01
+
+- Make the play badge triangle slightly larger while preserving its selected-color background.
+
+## 2.0.13 — 2026-11-01
+
+- Restore the earlier Montserrat badge rendering, with a centered black play mark or two-bar pause mark on the selected color.
+
+## 2.0.12 — 2026-11-01
+
+- Restore the earlier smooth, centered play/pause badge with black symbols and a user-selectable circular background color.
+
+## 2.0.11 — 2026-11-01
+
+- Refresh Discord's cached playback badge so the black play/pause mark and user-selected orange circle render correctly.
+
+## 2.0.10 — 2026-11-01
+
+- Log Discord IPC and activity update failures so connection problems are diagnosable.
+
+## 2.0.9 — 2026-11-01
+
+- Keep Discord badge images below the 300-character limit with bold custom play/pause artwork.
+- Avoid treating the stable position of paused media as a seek.
+
+## 2.0.8 — 2026-11-01
+
+- Keep the Discord activity live if the custom playback badge image is rejected.
+- Log Discord publish failures so connection problems are visible during troubleshooting.
+
+## 2.0.7 — 2026-11-01
+
+- Replace font-based playback marks with bold, custom-rendered black play and pause symbols.
+- Clarify that Discord hides Rich Presence buttons from the account viewing its own activity.
+
+## 2.0.6 — 2026-11-01
+
+- Add optional IMDb and trailer buttons to movie and episode Discord activities.
+- Keep links out of the activity text and cache provider lookups per title.
+
 ## 2.0.5 — 2026-11-01
 
 - Retain Ken Sible's MIT copyright notice alongside GhostyGang's.

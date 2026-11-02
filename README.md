@@ -21,6 +21,7 @@ GhostyFlix RPC connects to your Jellyfin account and publishes the current movie
 - Jellyfin Quick Connect or API key sign-in.
 - Movie titles and years, episode details, and music track and artist information.
 - Discord playback timestamps, an optional watched or listened percentage, and time remaining.
+- Optional IMDb and trailer buttons on movie and episode activities.
 - Jellyfin, TMDB, or OMDb posters, plus optional MusicBrainz and Cover Art Archive album artwork.
 - Playback filters for Jellyfin libraries and media types.
 - A live preview in the app, paused playback, and a configurable play/pause badge.
@@ -58,7 +59,7 @@ The app checks public GitHub Releases for a newer Windows build. It verifies the
 - Your server address and Jellyfin sign-in token, plus optional artwork keys, are saved in `%APPDATA%\GhostyFlix RPC\ghostyflix_rpc.ini`. This local file is **not encrypted**; do not share or commit it.
 - Playback is read from Jellyfin and sent to Discord's local desktop client. Discord privacy settings control who can see your activity.
 - Discord receives the selected poster image URL. If a Jellyfin address is only reachable on your home network, Discord may not be able to load its poster; a public artwork provider can be used instead.
-- The play/pause badge image is requested from Placehold.co. The URL contains only the symbol and selected color.
+- The play/pause badge image is requested from Placehold.co. It uses the selected color and playback mark; its URL contains no title, poster, or account details.
 - Diagnostic logs are stored beside the settings file. Redact personal details before sharing a log.
 
 ## Build from source

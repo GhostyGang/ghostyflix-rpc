@@ -65,13 +65,15 @@ class ActivityTextTests(unittest.TestCase):
 
         self.assertEqual(service._rpc.update.call_args.kwargs['name'], 'GhostyFlix')
 
-    def test_playback_badges_use_black_ascii_marks_and_roboto(self) -> None:
+    def test_playback_badges_use_centered_black_marks_on_selected_color(self) -> None:
         playing = PlaybackService._badge_url(paused=False, color='#FF7628')
         paused = PlaybackService._badge_url(paused=True, color='#FF7628')
 
-        self.assertIn('/FF7628/111111.png', playing)
-        self.assertIn('text=%E2%96%B6&font=roboto', playing)
-        self.assertIn('text=%E2%8F%B8&font=roboto', paused)
+        self.assertIn('/FF7628/000000.png', playing)
+        self.assertIn('text=%E2%96%B6&font=source-sans-pro', playing)
+        self.assertLessEqual(len(playing), 300)
+        self.assertIn('/FF7628/000000.png', paused)
+        self.assertIn('text=II&font=montserrat', paused)
 
 
 if __name__ == '__main__':

@@ -5,6 +5,7 @@ import logging
 import threading
 import time
 from typing import Any
+from urllib.parse import quote
 
 from pypresence import Presence
 from pypresence.types import ActivityType
@@ -288,19 +289,25 @@ class PlaybackService:
         state_changed = self._last_playback is None or self._last_playback.paused != media.paused
         elapsed_since_update = max(0, now_mono - self._last_update_time)
         expected_position = self._last_position + int(elapsed_since_update)
-        sought = self._last_published is not None and abs(media.position_seconds - expected_position) >= self._settings.seek_threshold
+        sought = (
+            not media.paused
+            and self._last_published is not None
+            and abs(media.position_seconds - expected_position) >= self._settings.seek_threshold
+        )
         refresh_progress = self._settings.show_progress_text and now_mono - self._last_update_time >= 60
+        buttons = self._artwork.activity_links(media, self._settings)
         signature = (
             media.item_id, media.paused, poster, self._settings.show_playback_badge,
             self._settings.badge_color, self._settings.show_progress_text,
             self._settings.show_server_name, self._settings.genre_limit,
-            self._settings.show_jellyfin_logo,
+            self._settings.show_jellyfin_logo, tuple((button['label'], button['url']) for button in buttons),
         )
         if not (playback_changed or state_changed or sought or refresh_progress or signature != self._last_published):
             self._last_playback = media
             return
         details, state, activity_type = self._activity_text(media)
         badge = self._badge_url(media.paused, self._settings.badge_color)
+        badge_published = self._settings.show_playback_badge
         start: int | None = None
         end: int | None = None
         if not media.paused and media.duration_seconds:
@@ -317,7 +324,7 @@ class PlaybackService:
                 if self._settings.show_playback_badge else
                 ('GhostyFlix RPC' if self._settings.show_jellyfin_logo else None)
             )
-            self._rpc.update(
+            activity = dict(
                 activity_type=activity_type,
                 name=(media.server_name if self._settings.show_server_name else 'GhostyFlix')[:128],
                 details=details[:128],
@@ -326,16 +333,37 @@ class PlaybackService:
                 large_text=f'{media.title} · GhostyFlix RPC'[:128],
                 small_image=small_image,
                 small_text=small_text,
+                buttons=buttons or None,
                 start=start,
                 end=end,
             )
+            try:
+                self._rpc.update(**activity)
+            except Exception as first_error:
+                logging.warning('Discord rejected the full presence payload: %s', str(first_error)[:300])
+                if not self._settings.show_playback_badge:
+                    raise
+                # A custom badge image must never prevent the movie activity
+                # itself from reaching Discord. Retry without the small image.
+                activity['small_image'] = None
+                activity['small_text'] = None
+                try:
+                    self._rpc.update(**activity)
+                except Exception as fallback_error:
+                    logging.warning('Discord also rejected presence without the badge: %s', str(fallback_error)[:300])
+                    raise fallback_error from first_error
+                logging.warning('Discord activity is live without its playback badge.')
+                badge_published = False
             self._last_position = media.position_seconds
             self._last_update_time = now_mono
             self._last_published = signature
             self._last_playback = media
+            if badge_published:
+                logging.info('Discord activity published with playback badge.')
             self._emit('presence', active=True)
         except Exception as exc:
             self._close_rpc()
+            logging.warning('Discord presence update failed: %s', str(exc)[:300])
             self._status(f'Discord presence could not be updated: {exc}')
 
     def _activity_text(self, media: MediaSession) -> tuple[str, str, ActivityType]:
@@ -368,11 +396,12 @@ class PlaybackService:
     def _badge_url(paused: bool, color: str) -> str:
         candidate = color.lstrip('#')
         safe = candidate if len(candidate) == 6 and all(char in '0123456789abcdefABCDEF' for char in candidate) else 'FF7628'
-        # Use bold Unicode media glyphs: the previous ASCII text marks were too
-        # thin at Discord's small badge size. Placehold renders these centered
-        # in a bold font and keeps them high contrast against the chosen color.
-        symbol = '%E2%8F%B8' if paused else '%E2%96%B6'  # ⏸ / ▶
-        return f'https://placehold.co/128x128/{safe}/111111.png?text={symbol}&font=roboto'
+        symbol = 'II' if paused else '▶'
+        font = 'montserrat' if paused else 'source-sans-pro'
+        url = f'https://placehold.co/128x128/{safe}/000000.png?text={quote(symbol, safe="")}&font={font}'
+        if len(url) > 300:
+            raise ValueError('Playback badge URL exceeds Discord’s 300-character image limit.')
+        return url
 
     def _ensure_rpc(self) -> bool:
         if self._rpc:
@@ -384,6 +413,7 @@ class PlaybackService:
             return True
         except Exception as exc:
             self._rpc = None
+            logging.warning('Discord RPC connection failed: %s', str(exc)[:300])
             if time.monotonic() - self._last_update_time > 10:
                 self._status(f'Open Discord desktop to publish your activity ({type(exc).__name__}).')
                 self._last_update_time = time.monotonic()

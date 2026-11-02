@@ -6,6 +6,11 @@ from ghostyflix_rpc.settings import Settings
 
 
 class SettingsTests(unittest.TestCase):
+    def test_activity_link_preferences_are_enabled_by_default(self) -> None:
+        settings = Settings()
+        self.assertTrue(settings.show_imdb_button)
+        self.assertTrue(settings.show_trailer_button)
+
     def test_new_settings_minimize_to_tray_on_close_by_default(self) -> None:
         self.assertTrue(Settings().close_to_tray)
 
