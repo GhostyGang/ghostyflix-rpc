@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 18977)
+Total output lines: 1185
+
 from __future__ import annotations
 
 import io
@@ -355,11 +358,17 @@ class GhostyFlixApp(ctk.CTk):
             ('Movies', self.media_movies_var), ('TV shows and episodes', self.media_shows_var),
             ('Music', self.media_music_var), ('Keep activity visible while paused', self.show_paused_var),
             ('Include percentage watched and time left in Discord status', self.progress_text_var),
-            ('Use my server name in the Discord headline', self.server_name_var),
+            ('Use my Jellyfin server name in Discord (otherwise “Jellyfin”)', self.server_name_var),
             ('Show a play / pause badge on the poster', self.badge_var),
             ('Show GhostyFlix logo when the play / pause badge is off', self.show_jellyfin_logo_var),
         ):
             self._checkbox(activity_card, text=label, variable=variable, checkbox_width=18, checkbox_height=18, fg_color=COLORS['orange'], hover_color=COLORS['orange_hover']).pack(anchor='w', padx=16, pady=5)
+        ctk.CTkLabel(
+            activity_card,
+            text='Discord supplies the “Watching” word. GhostyFlix changes the activity name and details to match playback or browsing.',
+            text_color=COLORS['muted'], wraplength=420, justify='left',
+            font=ctk.CTkFont(family='Segoe UI', size=10),
+        ).pack(anchor='w', padx=16, pady=(1, 8))
         color_row = ctk.CTkFrame(activity_card, fg_color='transparent')
         color_row.pack(fill='x', padx=12, pady=(5, 14))
         ctk.CTkLabel(color_row, text='Badge color', text_color=COLORS['muted']).pack(side='left', padx=4)
@@ -413,8 +422,19 @@ class GhostyFlixApp(ctk.CTk):
         self.update_progress = ctk.CTkProgressBar(updater, height=7, progress_color=COLORS['orange'], fg_color=COLORS['button'])
         self.update_progress.grid(row=3, column=0, columnspan=3, sticky='ew', padx=16, pady=(0, 14))
         self.update_progress.set(0)
+
+        browser_companion = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=18)
+        browser_companion.grid(row=3, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 10))
+        browser_companion.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(browser_companion, text='OPTIONAL BROWSER COMPANION', text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold')).grid(row=0, column=0, sticky='w', padx=16, pady=(14, 4))
+        ctk.CTkLabel(browser_companion, text='Share when you’re browsing Jellyfin, including playlists and collections. The extension is installed separately and only reads the Jellyfin site you approve.', text_color=COLORS['muted'], anchor='w', wraplength=650, justify='left').grid(row=1, column=0, sticky='ew', padx=16, pady=(0, 13))
+        companion_actions = ctk.CTkFrame(browser_companion, fg_color='transparent')
+        companion_actions.grid(row=0, column=1, rowspan=2, sticky='e', padx=16, pady=12)
+        self._button(companion_actions, text='Setup guide', command=self._open_browser_setup_guide, primary=True, height=36).pack(side='left', padx=(0, 8))
+        self._button(companion_actions, text='Extension folder', command=self._open_browser_extension_folder, height=36).pack(side='left')
+
         activity_links = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=18)
-        activity_links.grid(row=3, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 10))
+        activity_links.grid(row=4, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 10))
         activity_links.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(activity_links, text='DISCORD ACTIVITY LINKS', text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold')).grid(row=0, column=0, sticky='w', padx=16, pady=(14, 4))
         ctk.CTkLabel(activity_links, text='Optional buttons appear below movie and episode activities. Discord hides them from your own profile; other people can see them. They do not add extra lines to your title or progress text.', text_color=COLORS['muted'], anchor='w', wraplength=650, justify='left').grid(row=1, column=0, sticky='w', padx=16, pady=(0, 10))
@@ -425,89 +445,13 @@ class GhostyFlixApp(ctk.CTk):
         self._checkbox(link_controls, text='IMDb', variable=self.show_imdb_button_var).pack(side='left', padx=(0, 14))
         self._checkbox(link_controls, text='Trailer', variable=self.show_trailer_button_var).pack(side='left')
         diagnostics = ctk.CTkFrame(tab, fg_color=COLORS['panel_alt'], border_width=1, border_color=COLORS['edge'], corner_radius=18)
-        diagnostics.grid(row=4, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 10))
+        diagnostics.grid(row=5, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 10))
         diagnostics.grid_columnconfigure(1, weight=1)
         ctk.CTkLabel(diagnostics, text='DIAGNOSTICS', text_color=COLORS['orange'], font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold')).grid(row=0, column=0, sticky='w', padx=16, pady=(14, 4))
         ctk.CTkLabel(diagnostics, text='Choose how much detail to write to the local activity log.', text_color=COLORS['muted'], anchor='w').grid(row=1, column=0, sticky='w', padx=16, pady=(0, 13))
         self.log_level_var = tk.StringVar(value=self.settings.log_level)
         self._option_menu(diagnostics, values=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], variable=self.log_level_var, width=145, fg_color=COLORS['button'], button_color=COLORS['orange'], button_hover_color=COLORS['orange_hover'], corner_radius=10).grid(row=0, column=1, sticky='e', padx=16, pady=(12, 4))
-        actions = ctk.CTkFrame(diagnostics, fg_color='transparent')
-        actions.grid(row=0, column=2, rowspan=2, sticky='e', padx=(8, 16), pady=12)
-        self._button(actions, text='Open settings folder', command=self._open_settings_folder, height=36).pack(side='left', padx=(0, 7))
-        self._button(actions, text='Open activity log', command=self._open_activity_log, height=36).pack(side='left')
-        self._button(actions, text='View license notices', command=lambda: self._open_local_path(resource_path('LICENSE')), height=36).pack(side='left', padx=(7, 0))
-        self._button(tab, text='Save preferences', command=self._save_preferences, primary=True, height=44).grid(row=5, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 16))
-
-    def _section_title(self, parent: Any, title: str, description: str) -> ctk.CTkFrame:
-        frame = ctk.CTkFrame(parent, fg_color='transparent')
-        ctk.CTkLabel(frame, text=title, font=ctk.CTkFont(family='Segoe UI', size=21, weight='bold'), text_color=COLORS['text']).pack(anchor='w')
-        ctk.CTkLabel(frame, text=description, font=ctk.CTkFont(family='Segoe UI', size=12), text_color=COLORS['muted'], wraplength=830, justify='left').pack(anchor='w', pady=(4, 0))
-        return frame
-
-    def _button(
-        self,
-        parent: Any,
-        text: str,
-        command: Any,
-        *,
-        primary: bool = False,
-        quiet: bool = False,
-        **options: Any,
-    ) -> ctk.CTkButton:
-        if quiet:
-            style: dict[str, Any] = {
-                'fg_color': 'transparent', 'hover_color': COLORS['orange_soft'],
-                'text_color': COLORS['orange'], 'border_width': 0,
-            }
-        elif primary:
-            style = {
-                'fg_color': COLORS['orange'], 'hover_color': COLORS['orange_hover'],
-                'text_color': '#17100C', 'border_width': 0,
-            }
-        else:
-            style = {
-                'fg_color': COLORS['button'], 'hover_color': COLORS['button_hover'],
-                'text_color': COLORS['text'], 'border_width': 1, 'border_color': COLORS['edge'],
-            }
-        style.update({
-            'height': 42,
-            'corner_radius': 13,
-            'font': ctk.CTkFont(family='Segoe UI', size=12, weight='bold'),
-        })
-        style.update(options)
-        return ctk.CTkButton(parent, text=text, command=command, **style)
-
-    def _entry(self, parent: Any, placeholder: str, show: str | None = None) -> ctk.CTkEntry:
-        entry = ctk.CTkEntry(parent, height=42, placeholder_text=placeholder, show=show, border_color=COLORS['edge'], fg_color='#111317', text_color=COLORS['text'], placeholder_text_color='#747B84', corner_radius=12, font=ctk.CTkFont(family='Segoe UI', size=12))
-        # CTkEntry (including the pinned 6.x build) does not accept focus_color.
-        # Keep its supported border styling so startup works across supported CTk versions.
-        return entry
-
-    def _checkbox(self, parent: Any, **options: Any) -> ctk.CTkCheckBox:
-        style: dict[str, Any] = {
-            'font': ctk.CTkFont(family='Segoe UI', size=12),
-            'text_color': COLORS['text'],
-            'fg_color': COLORS['orange'],
-            'hover_color': COLORS['orange_hover'],
-            'border_color': COLORS['edge'],
-            'corner_radius': 5,
-            'checkbox_width': 18,
-            'checkbox_height': 18,
-        }
-        style.update(options)
-        return ctk.CTkCheckBox(parent, **style)
-
-    def _option_menu(self, parent: Any, **options: Any) -> ctk.CTkOptionMenu:
-        style: dict[str, Any] = {
-            'height': 38,
-            'corner_radius': 11,
-            'fg_color': COLORS['button'],
-            'button_color': COLORS['orange'],
-            'button_hover_color': COLORS['orange_hover'],
-            'text_color': COLORS['text'],
-            'font': ctk.CTkFont(family='Segoe UI', size=12),
-            'dropdown_fg_color': COLORS['panel_alt'],
-            'dropdown_hover_color': COLORS['orange_soft'],
+        actions = ctk.CTkFrame(diagnostics, fg_color='transpar…977 tokens truncated…opdown_hover_color': COLORS['orange_soft'],
             'dropdown_text_color': COLORS['text'],
             'dropdown_font': ctk.CTkFont(family='Segoe UI', size=12),
         }
@@ -699,6 +643,25 @@ class GhostyFlixApp(ctk.CTk):
     def _open_settings_folder(self) -> None:
         self._open_local_path(settings_directory())
 
+    @staticmethod
+    def _browser_extension_directory() -> Path:
+        if getattr(sys, 'frozen', False):
+            return Path(sys.executable).resolve().parent / 'Browser Activity Extension'
+        return Path(__file__).resolve().parents[2] / 'browser-extension'
+
+    def _open_browser_extension_folder(self) -> None:
+        self._open_local_path(self._browser_extension_directory())
+
+    def _open_browser_setup_guide(self) -> None:
+        if getattr(sys, 'frozen', False):
+            guide = Path(sys.executable).resolve().parent / 'BROWSER COMPANION SETUP.txt'
+        else:
+            guide = self._browser_extension_directory() / 'README.md'
+        if not guide.exists():
+            messagebox.showinfo('Browser companion setup', 'Choose Extension folder to locate the companion files, then follow the included setup instructions.')
+            return
+        self._open_local_path(guide)
+
     def _open_activity_log(self) -> None:
         self._open_local_path(settings_directory() / 'ghostyflix_rpc.log')
 
@@ -836,6 +799,8 @@ class GhostyFlixApp(ctk.CTk):
                     self._render_playback(
                         event.get('media'), str(event.get('poster') or ''), event.get('preview_art')
                     )
+                    if event.get('browser'):
+                        self._render_browser_activity(*event['browser'], server_name=str(event.get('server_name') or 'Jellyfin'))
                 elif kind == 'poster_image':
                     image = event.get('image')
                     if event.get('url') == self._poster_url and image is not None:
@@ -884,7 +849,7 @@ class GhostyFlixApp(ctk.CTk):
             self._poster_source = None
             self._loaded_poster_url = ''
             return
-        server_label = media.server_name if self.settings.show_server_name else 'GhostyFlix'
+        server_label = media.server_name if self.settings.show_server_name else 'Jellyfin'
         heading = f'{"LISTENING TO" if media.media_type == "Music" else "WATCHING"} {server_label.upper()}'
         self.preview_heading.configure(text=heading[:80])
         display_title = media.title
@@ -914,6 +879,18 @@ class GhostyFlixApp(ctk.CTk):
             self.poster_label.configure(image=None, text='LOADING ARTWORK…' if poster_url else '')
         if poster_url and poster_url != self._loaded_poster_url:
             threading.Thread(target=self._download_preview_image, args=(poster_url,), daemon=True).start()
+
+    def _render_browser_activity(self, page: str, title: str, server_name: str) -> None:
+        labels = {
+            'home': 'Home', 'movies': 'Movies', 'shows': 'Shows',
+            'music': 'Music', 'search': 'Search', 'playlists': 'Playlists',
+            'collections': 'Collections / box sets', 'details': 'Details',
+        }
+        page_label = labels.get(page, 'Jellyfin')
+        self.preview_heading.configure(text=f'BROWSING {server_name.upper()}'[:80])
+        self.preview_title.configure(text=f'Viewing {title}' if title else f'Browsing {page_label}')
+        self.preview_subtitle.configure(text='This browsing activity is shared with Discord while playback is idle.')
+        self.preview_state.configure(text=f'JELLYFIN WEB · {page_label.upper()}'[:60])
 
     def _make_placeholder_image(self, logo: Image.Image) -> ctk.CTkImage:
         width, height = 176, 234

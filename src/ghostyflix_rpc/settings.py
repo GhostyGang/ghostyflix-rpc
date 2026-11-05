@@ -44,7 +44,7 @@ class Settings:
     polling_rate: int = 3
     seek_threshold: int = 3
     log_level: str = 'INFO'
-    update_repository: str = 'GhostyGang/ghostyflix-rpc'
+    update_repository: str = 'emoacid1-cmd/ghostyflix-rpc'
     automatic_updates: bool = True
     show_jellyfin_logo: bool = False
     textless_posters: bool = False

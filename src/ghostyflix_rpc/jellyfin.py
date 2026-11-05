@@ -61,6 +61,10 @@ class JellyfinClient:
             'User-Agent': 'GhostyFlixRPC/2.0',
         })
 
+    @property
+    def server_name(self) -> str:
+        return self._configured_server_name() or 'Jellyfin'
+
     def _authorization(self, token: str = '') -> str:
         value = (
             'MediaBrowser Client="GhostyFlix RPC", Device="Desktop", '

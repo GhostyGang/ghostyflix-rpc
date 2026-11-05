@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "GhostyFlix RPC Browser Companion",
+  "version": "0.2.0",
+  "description": "Optionally shares the active Jellyfin Web section with GhostyFlix RPC on this PC.",
+  "permissions": ["storage", "scripting", "tabs"],
+  "host_permissions": ["http://127.0.0.1:47861/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "scripts": ["background.js"],
+    "service_worker": "background.js"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ghostyflix-browser-companion@ghostyflix.app",
+      "strict_min_version": "121.0"
+    }
+  },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "icons": { "128": "icon.png" }
+}

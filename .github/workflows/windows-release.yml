@@ -29,35 +29,77 @@ jobs:
       - name: Build desktop executable
         run: uv run pyinstaller --noconfirm main.spec
 
-      - name: Create SHA-256 checksum
+      - name: Prepare stable release assets
+        if: ${{ !contains(github.ref_name, '-browser-test.') }}
         shell: pwsh
         run: |
-          $file = "dist/GhostyFlix RPC.exe"
-          $releaseFile = "dist/GhostyFlix.RPC.exe"
-          Copy-Item -LiteralPath $file -Destination $releaseFile
+          Copy-Item -LiteralPath "dist/GhostyFlix RPC.exe" -Destination "dist/GhostyFlix.RPC.exe"
           Copy-Item -LiteralPath "LICENSE" -Destination "dist/LICENSE.txt"
-          $exeHash = (Get-FileHash -LiteralPath $releaseFile -Algorithm SHA256).Hash.ToLowerInvariant()
+          $exeHash = (Get-FileHash -LiteralPath "dist/GhostyFlix.RPC.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
           $licenseHash = (Get-FileHash -LiteralPath "dist/LICENSE.txt" -Algorithm SHA256).Hash.ToLowerInvariant()
           Set-Content -LiteralPath "dist/SHA256SUMS.txt" -Value "$exeHash  GhostyFlix.RPC.exe`n$licenseHash  LICENSE.txt" -Encoding ascii
+
+      - name: Prepare browser companion test assets
+        if: ${{ contains(github.ref_name, '-browser-test.') }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $manifest = Get-Content -Raw -LiteralPath "browser-extension/manifest.json" | ConvertFrom-Json
+          $bundle = "dist/GhostyFlix-RPC-3.0-TEST-Browser-Companion"
+          $extension = Join-Path $bundle "Browser Activity Extension"
+          $null = New-Item -ItemType Directory -Force -Path $extension
+          Copy-Item -LiteralPath "dist/GhostyFlix RPC.exe" -Destination (Join-Path $bundle "GhostyFlix RPC.exe")
+          Copy-Item -LiteralPath "LICENSE" -Destination (Join-Path $bundle "LICENSE.txt")
+          Copy-Item -LiteralPath "BROWSER COMPANION SETUP.txt" -Destination (Join-Path $bundle "START HERE - Browser Companion Setup.txt")
+          Copy-Item -Path "browser-extension/*" -Destination $extension -Recurse -Force
+          Copy-Item -LiteralPath "docs/BROWSER_COMPANION_TEST_README.md" -Destination (Join-Path $bundle "TEST BUILD - READ BEFORE USE.txt")
+          Compress-Archive -Path "$bundle/*" -DestinationPath "$bundle.zip" -Force
+          & "browser-extension/package.ps1" -Destination "dist/browser-companion"
+          Copy-Item -LiteralPath "LICENSE" -Destination "dist/LICENSE.txt"
+          $assets = @(
+            "dist/GhostyFlix RPC.exe",
+            "$bundle.zip",
+            "dist/browser-companion/GhostyFlix-Browser-Companion-$($manifest.version).zip",
+            "dist/browser-companion/GhostyFlix-Browser-Companion-$($manifest.version)-unsigned.xpi",
+            "dist/LICENSE.txt"
+          )
+          $lines = foreach ($asset in $assets) {
+            $hash = (Get-FileHash -LiteralPath $asset -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $([IO.Path]::GetFileName($asset))"
+          }
+          Set-Content -LiteralPath "dist/SHA256SUMS.txt" -Value $lines -Encoding ascii
 
       - name: Publish GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view $env:GITHUB_REF_NAME *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:GITHUB_REF_NAME `
-              "dist/GhostyFlix.RPC.exe" `
-              "dist/LICENSE.txt" `
-              "dist/SHA256SUMS.txt" `
-              --clobber
+          $isBrowserTest = $env:GITHUB_REF_NAME.Contains("-browser-test.")
+          if ($isBrowserTest) {
+            $assets = @(
+              "dist/GhostyFlix RPC.exe",
+              "dist/GhostyFlix-RPC-3.0-TEST-Browser-Companion.zip",
+              "dist/browser-companion/GhostyFlix-Browser-Companion-0.2.0.zip",
+              "dist/browser-companion/GhostyFlix-Browser-Companion-0.2.0-unsigned.xpi",
+              "dist/LICENSE.txt",
+              "dist/SHA256SUMS.txt"
+            )
+            $title = "GhostyFlix RPC 3.0 Test — Browser Companion"
+            $notes = "docs/BROWSER_COMPANION_TEST_RELEASE.md"
           } else {
-            gh release create $env:GITHUB_REF_NAME `
-              "dist/GhostyFlix.RPC.exe" `
-              "dist/LICENSE.txt" `
-              "dist/SHA256SUMS.txt" `
-              --verify-tag `
-              --generate-notes
+            $assets = @("dist/GhostyFlix.RPC.exe", "dist/LICENSE.txt", "dist/SHA256SUMS.txt")
+            $title = $env:GITHUB_REF_NAME
           }
 
+          gh release view $env:GITHUB_REF_NAME *> $null
+          $releaseExists = $LASTEXITCODE -eq 0
+          if ($releaseExists) {
+            gh release upload $env:GITHUB_REF_NAME @assets --clobber
+            if ($isBrowserTest) {
+              gh release edit $env:GITHUB_REF_NAME --title $title --notes-file $notes --prerelease --latest=false
+            }
+          } elseif ($isBrowserTest) {
+            gh release create $env:GITHUB_REF_NAME @assets --verify-tag --title $title --notes-file $notes --prerelease --latest=false
+          } else {
+            gh release create $env:GITHUB_REF_NAME @assets --verify-tag --generate-notes
+          }

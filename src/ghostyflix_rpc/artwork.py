@@ -20,7 +20,7 @@ class ArtworkLookup:
         self._last_musicbrainz_request = 0.0
         self.last_source = ''
         self.http = requests.Session()
-        self.http.headers.update({'User-Agent': 'GhostyFlixRPC/2.0 (https://github.com/GhostyGang/ghostyflix-rpc)'})
+        self.http.headers.update({'User-Agent': 'GhostyFlixRPC/2.0 (https://github.com/emoacid1-cmd/ghostyflix-rpc)'})
 
     def activity_links(self, media: MediaSession, settings: Settings) -> list[dict[str, str]]:
         if media.media_type not in {'Movie', 'Episode'}:

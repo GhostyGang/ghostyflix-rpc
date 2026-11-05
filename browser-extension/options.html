@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GhostyFlix Browser Activity</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="brandbar">
+      <div class="brand"><img src="icon.png" alt=""><span>GHOSTYFLIX <i>RPC</i></span></div>
+      <span class="local-pill"><span></span> LOCAL COMPANION</span>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">A LITTLE MORE PRESENCE</p>
+      <h1>Your Jellyfin time,<br><em>shared with Discord.</em></h1>
+      <p class="intro">Show friends what you’re browsing when nothing is playing. Your active Jellyfin section—and a page title when available—is sent to GhostyFlix on this PC.</p>
+    </section>
+
+    <section class="activity-panel" aria-labelledby="activity-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">BROWSING ACTIVITY</p><h2 id="activity-title">What can show up</h2></div>
+        <span class="priority">Playback takes priority</span>
+      </div>
+      <div class="activity-grid">
+        <div class="activity-item"><span class="index">01</span><span>Home</span></div>
+        <div class="activity-item"><span class="index">02</span><span>Movies</span></div>
+        <div class="activity-item"><span class="index">03</span><span>Shows</span></div>
+        <div class="activity-item"><span class="index">04</span><span>Music</span></div>
+        <div class="activity-item"><span class="index">05</span><span>Search</span></div>
+        <div class="activity-item"><span class="index">06</span><span>Playlists</span></div>
+        <div class="activity-item wide"><span class="index">07</span><span>Collections <small>also called box sets</small></span></div>
+      </div>
+    </section>
+
+    <section class="setup-panel" aria-labelledby="setup-title">
+      <div class="section-heading setup-heading">
+        <div><p class="eyebrow">ONE-TIME SETUP</p><h2 id="setup-title">Connect your Jellyfin site</h2></div>
+        <span class="step-count">01 <b>/</b> 02</span>
+      </div>
+      <label for="server">Jellyfin Web address</label>
+      <div class="input-wrap"><span>↗</span><input id="server" type="url" placeholder="http://jellyfin.local:8096/web/" autocomplete="url"></div>
+      <p class="hint">Enter the same address you use to open Jellyfin in this browser. You’ll be asked to allow access to that site.</p>
+      <button id="save"><span>Connect this Jellyfin site</span><b aria-hidden="true">→</b></button>
+      <div id="status" role="status" aria-live="polite"></div>
+    </section>
+
+    <footer class="footer">
+      <div class="privacy-mark" aria-hidden="true">●</div>
+      <p><strong>Private by design.</strong> This extension doesn’t read browser history or contact a cloud service. It sends the active page section to GhostyFlix over this PC’s local connection.</p>
+    </footer>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>

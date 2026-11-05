@@ -11,6 +11,7 @@ from pypresence import Presence
 from pypresence.types import ActivityType
 
 from .artwork import ArtworkLookup, normalize_public_image, select_genres
+from .browser_bridge import BrowserActivityBridge, normalized_origin
 from .jellyfin import JellyfinClient, MediaSession
 from .settings import Settings
 from . import DISCORD_APPLICATION_ID
@@ -53,10 +54,14 @@ class PlaybackService:
         self._preview_art_cache: dict[str, bytes] = {}
         self._last_artwork_source = ''
         self._last_artwork_item = ''
+        self._browser_activity: tuple[str, str, float] | None = None
+        self._browser_signature: tuple[str, str] | None = None
+        self._browser_bridge = BrowserActivityBridge(lambda payload: self.commands.put(('browser_activity', payload)))
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
+        self._browser_bridge.start()
         self._thread = threading.Thread(target=self._run, name='GhostyFlix playback', daemon=True)
         self._thread.start()
         if self._settings.jellyfin_host and (self._settings.jellyfin_token or self._settings.jellyfin_api_key):
@@ -65,6 +70,7 @@ class PlaybackService:
     def close(self) -> None:
         self._closed.set()
         self.commands.put(('close', None))
+        self._browser_bridge.close()
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=2)
 
@@ -117,6 +123,22 @@ class PlaybackService:
 
     def _handle_command(self, name: str, payload: Any) -> None:
         if name == 'close':
+            return
+        if name == 'browser_activity':
+            if not self._client or not self._settings.jellyfin_host:
+                return
+            page = str(payload.get('page') or '')[:20]
+            title = ' '.join(str(payload.get('title') or '').split())[:100]
+            server = normalized_origin(str(payload.get('server') or ''))
+            configured = normalized_origin(self._settings.jellyfin_host)
+            if not server or server != configured:
+                return
+            if page == 'idle':
+                self._browser_activity = None
+                self._browser_signature = None
+            elif page in {'home', 'movies', 'shows', 'music', 'search', 'playlists', 'collections', 'details'}:
+                self._browser_activity = (page, title, time.monotonic() + 12)
+                self._emit('browser_activity', page=page, title=title)
             return
         if name == 'settings':
             self._settings = payload
@@ -223,8 +245,15 @@ class PlaybackService:
             self._status(f'Jellyfin connection paused: {exc}')
             return
         if media is None or not self._media_enabled(media):
+            if media is not None:
+                self._browser_signature = None
             self._last_playback = None
             self._last_published = None
+            if media is None and self._publish_browser_activity():
+                self._status(f'Browsing Jellyfin · {self._browser_activity[0]}')
+                server_name = self._client.server_name if self._settings.show_server_name else 'Jellyfin'
+                self._emit('playback', media=None, browser=self._browser_activity[:2], server_name=server_name)
+                return
             self._clear_presence()
             self._status(f'Connected as {self._user_name}. Waiting for playback…')
             self._emit('playback', media=None)
@@ -281,6 +310,43 @@ class PlaybackService:
             'Music': self._settings.media_music,
         }.get(media.media_type, False)
 
+    def _publish_browser_activity(self) -> bool:
+        activity = self._browser_activity
+        if not activity:
+            return False
+        page, title, expires = activity
+        if time.monotonic() >= expires:
+            self._browser_activity = None
+            self._browser_signature = None
+            return False
+        signature = (page, title)
+        if signature == self._browser_signature and self._rpc:
+            return True
+        if not self._ensure_rpc():
+            return True
+        labels = {
+            'home': 'Home', 'movies': 'Movies', 'shows': 'Shows',
+            'music': 'Music', 'search': 'Search', 'playlists': 'Playlists',
+            'collections': 'Collections',
+        }
+        details = f'Viewing {title}' if title else f'Browsing {labels.get(page, "Jellyfin")}'
+        server_name = self._client.server_name if self._settings.show_server_name else 'Jellyfin'
+        try:
+            self._rpc.update(
+                activity_type=ActivityType.WATCHING,
+                name=server_name[:128],
+                details=details[:128],
+                large_image='https://raw.githubusercontent.com/emoacid1-cmd/ghostyflix-rpc/main/assets/icon.png',
+                large_text='GhostyFlix RPC · Browser activity',
+            )
+            self._browser_signature = signature
+            self._last_published = None
+            self._emit('presence', active=True)
+        except Exception as exc:
+            self._close_rpc()
+            logging.warning('Browser activity update failed: %s', str(exc)[:300])
+        return True
+
     def _publish(self, media: MediaSession, poster: str) -> None:
         now_mono = time.monotonic()
         if not self._ensure_rpc():
@@ -315,7 +381,7 @@ class PlaybackService:
             start = now_epoch - media.position_seconds
             end = now_epoch + media.remaining_seconds
         try:
-            logo_url = 'https://raw.githubusercontent.com/GhostyGang/ghostyflix-rpc/main/assets/icon.png'
+            logo_url = 'https://raw.githubusercontent.com/emoacid1-cmd/ghostyflix-rpc/main/assets/icon.png'
             small_image = badge if self._settings.show_playback_badge else (
                 logo_url if self._settings.show_jellyfin_logo else None
             )
@@ -326,10 +392,10 @@ class PlaybackService:
             )
             activity = dict(
                 activity_type=activity_type,
-                name=(media.server_name if self._settings.show_server_name else 'GhostyFlix')[:128],
+                name=(media.server_name if self._settings.show_server_name else 'Jellyfin')[:128],
                 details=details[:128],
                 state=state[:128] if state else None,
-                large_image=normalize_public_image(poster) or 'https://raw.githubusercontent.com/GhostyGang/ghostyflix-rpc/main/assets/icon.png',
+                large_image=normalize_public_image(poster) or 'https://raw.githubusercontent.com/emoacid1-cmd/ghostyflix-rpc/main/assets/icon.png',
                 large_text=f'{media.title} · GhostyFlix RPC'[:128],
                 small_image=small_image,
                 small_text=small_text,
@@ -425,6 +491,7 @@ class PlaybackService:
                 self._rpc.clear()
             except Exception:
                 self._close_rpc()
+        self._browser_signature = None
         self._emit('presence', active=False)
 
     def _close_rpc(self) -> None:

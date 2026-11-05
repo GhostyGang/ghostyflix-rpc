@@ -1,0 +1,38 @@
+GHOSTYFLIX RPC — OPTIONAL BROWSER COMPANION
+
+The companion adds browsing activity when Jellyfin is open but nothing is playing. It supports Home, Movies, Shows, Music, Search, Playlists, and Collections (Box Sets). Playback activity always takes priority.
+
+PRIVACY
+The extension only reads the Jellyfin site you approve. It does not read browser history or contact a cloud service. It sends the active section and a page title when available to GhostyFlix through a local connection on this PC.
+
+BEFORE YOU START
+1. Keep GhostyFlix open and connected to the same Jellyfin server used in your browser.
+2. Keep Discord desktop open on the same PC.
+3. Install the extension using the steps for your browser below.
+
+CHROME, BRAVE, OR OPERA GX
+1. Open the browser’s extension page:
+   Chrome: chrome://extensions
+   Brave:  brave://extensions
+   Opera:  opera://extensions
+2. Turn on Developer mode.
+3. Choose Load unpacked and select the “Browser Activity Extension” folder beside this guide.
+4. Open the extension’s Details, then Extension options.
+5. Enter the Jellyfin Web address you open in that browser and choose “Connect this Jellyfin site.” Approve the site permission.
+6. Refresh the Jellyfin tab and keep it active.
+
+FIREFOX
+1. Open about:debugging#/runtime/this-firefox.
+2. Choose “Load Temporary Add-on.”
+3. Select manifest.json inside the “Browser Activity Extension” folder beside this guide.
+4. Open the extension’s options, enter your Jellyfin Web address, and approve the site permission.
+5. Refresh Jellyfin Web and keep its tab active.
+
+Firefox removes temporary add-ons when it closes. A persistent Firefox install requires Mozilla signing. GhostyFlix does not silently install browser extensions: browsers require the person installing them to approve the requested permissions.
+
+TROUBLESHOOTING
+• If the extension is already installed from this folder, open the browser’s extension page and choose Reload after GhostyFlix updates the extension files.
+• Use the exact Jellyfin Web host and port configured in GhostyFlix.
+• Refresh Jellyfin after connecting the extension and leave its tab active for a few seconds.
+• Browsing appears only while no enabled media is playing in Jellyfin.
+• For a persistent one-click store install, the GhostyFlix companion needs approved store listings. Until then, local installation requires the short developer-mode or temporary-add-on steps above.

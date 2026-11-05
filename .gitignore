@@ -13,3 +13,4 @@ dist/
 *.tmp
 *.new
 *.ini.local
+.preview-data/

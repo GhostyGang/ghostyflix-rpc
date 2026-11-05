@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve GhostyFlix RPC. Before opening an issue, search the existing [issues](https://github.com/GhostyGang/ghostyflix-rpc/issues) for a report of the same problem.
+Thanks for helping improve GhostyFlix RPC. Before opening an issue, search the existing [issues](https://github.com/emoacid1-cmd/ghostyflix-rpc/issues) for a report of the same problem.
 
 ## Bug reports
 
@@ -27,4 +27,4 @@ uv run pyinstaller --noconfirm main.spec
 
 ## Releases
 
-The Windows release workflow runs when a `v*` tag is pushed. Keep the project version in `pyproject.toml` and `src/ghostyflix_rpc/__init__.py` aligned with the release tag. The workflow builds the executable, generates a SHA-256 checksum, and publishes both assets.
+The Windows release workflow runs when a `v*` tag is pushed. Stable tags use the project version in `pyproject.toml` and `src/ghostyflix_rpc/__init__.py`. Tags containing `-browser-test.` publish a separate optional pre-release bundle with browser-companion packages; they do not change the stable updater channel.
