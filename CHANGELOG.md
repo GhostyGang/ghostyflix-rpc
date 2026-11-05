@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0 Test — optional browser companion preview
+
+- Add early Jellyfin Web browsing activity for Home, Movies, Shows, Music, Search, Playlists, and Collections/Box Sets.
+- Add a local browser-to-app bridge, optional browser extension setup, and a separate pre-release package. Playback continues to take priority.
+- This is an experimental test build; it does not change the stable app version or the in-app updater's stable release channel.
+
 ## 2.0.16 — 2026-11-01
 
 - Enlarge the centered black play triangle while keeping the selected-color badge and existing pause mark.

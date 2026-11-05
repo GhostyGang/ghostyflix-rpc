@@ -1,66 +1,96 @@
 <p align="center">
-  <img src="assets/icon.png" alt="GhostyFlix RPC" width="104">
+  <img src="assets/ghostyflix-hero.png" alt="GhostyFlix RPC — Jellyfin Rich Presence" width="100%">
 </p>
 
 <h1 align="center">GhostyFlix RPC</h1>
 
-<p align="center">A small desktop companion that shares your Jellyfin playback on Discord.</p>
+<p align="center"><strong>Your Jellyfin. Your Discord. One clean little link.</strong></p>
+
+<p align="center">A Windows companion that turns Jellyfin playback into a polished Discord Rich Presence.</p>
 
 <p align="center">
-  <a href="https://github.com/GhostyGang/ghostyflix-rpc/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/GhostyGang/ghostyflix-rpc?label=latest%20release"></a>
-  <a href="https://github.com/GhostyGang/ghostyflix-rpc/actions/workflows/windows-release.yml"><img alt="Windows build" src="https://github.com/GhostyGang/ghostyflix-rpc/actions/workflows/windows-release.yml/badge.svg"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-orange.svg"></a>
+  <a href="https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/latest"><img alt="Latest stable release" src="https://img.shields.io/github/v/release/emoacid1-cmd/ghostyflix-rpc?label=stable%20release&color=ff7628"></a>
+  <a href="https://github.com/emoacid1-cmd/ghostyflix-rpc/actions/workflows/windows-release.yml"><img alt="Windows build" src="https://github.com/emoacid1-cmd/ghostyflix-rpc/actions/workflows/windows-release.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-17191E.svg"></a>
 </p>
 
-GhostyFlix RPC connects to your Jellyfin account and publishes the current movie, episode, or track as a Discord Rich Presence activity. It runs on your computer and talks directly to Jellyfin, Discord desktop, and the artwork services you select.
+<p align="center">
+  <a href="https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/latest">Download</a> ·
+  <a href="https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.2">Optional 3.0 Test build</a> ·
+  <a href="docs/USER_GUIDE.md">Setup guide</a> ·
+  <a href="CHANGELOG.md">Release notes</a> ·
+  <a href="docs/BROWSER_COMPANION.md">Browser companion</a>
+</p>
 
-[Download GhostyFlix](https://github.com/GhostyGang/ghostyflix-rpc/releases/latest) · [Setup guide](docs/USER_GUIDE.md) · [Release notes](CHANGELOG.md)
+GhostyFlix connects to your Jellyfin account, watches for playback, and shares the title, artwork, and progress through Discord’s desktop client. Your Jellyfin connection and preferences stay on your computer.
 
-## What it includes
+## The good stuff
 
-- Jellyfin Quick Connect or API key sign-in.
-- Movie titles and years, episode details, and music track and artist information.
-- Discord playback timestamps, an optional watched or listened percentage, and time remaining.
-- Optional IMDb and trailer buttons on movie and episode activities.
-- Jellyfin, TMDB, or OMDb posters, plus optional MusicBrainz and Cover Art Archive album artwork.
-- Playback filters for Jellyfin libraries and media types.
-- A live preview in the app, paused playback, and a configurable play/pause badge.
-- Adjustable playback polling, startup behavior, system tray controls, and checks for new releases.
+- Sign in with Jellyfin Quick Connect or an API key.
+- Share movies, episodes, and music with poster art and playback progress.
+- Show movie year, genres, paused state, elapsed time, and time remaining.
+- Add compact IMDb and trailer buttons to movie and episode activities.
+- Choose Jellyfin, TMDB, or OMDb for posters; use MusicBrainz and Cover Art Archive for album art.
+- Filter which Jellyfin libraries and media types can appear.
+- Preview the activity inside the app, tune the orange play/pause badge, and keep GhostyFlix in the system tray.
+- Update from public GitHub stable releases without replacing the app by hand.
 
-Discord controls the native card design and its progress bar. GhostyFlix supplies activity text, timing, and artwork; it cannot change Discord's card layout.
+Discord controls the exact card layout. GhostyFlix supplies the activity text, timing, images, and buttons.
 
-## Start here
+### Example activity
 
-1. Download and open the current Windows executable from [Releases](https://github.com/GhostyGang/ghostyflix-rpc/releases/latest).
-2. Enter your Jellyfin server address and choose **Quick Connect**.
-3. Enter the one-time code under the Jellyfin user menu → **Quick Connect** on a signed-in device, then approve it.
-4. Keep Discord desktop open on the same computer and allow activity sharing in Discord's privacy settings.
-5. Start playback in Jellyfin. GhostyFlix shows a local preview and publishes the activity to Discord.
+```text
+Watching Jellyfin
+The Last Star (2025)
+2025 · Sci-Fi
+01:21 ━━━━━━━━━━━ 02:08
+Paused · 64% watched · 47 min left
+```
 
-If the server does not offer Quick Connect, use the API key option in the app. The [user guide](docs/USER_GUIDE.md) covers sign-in, artwork sources, online updates, and troubleshooting.
+The artwork and progress bar are rendered by Discord; the exact layout can vary by client and screen size.
 
-## Artwork providers
+## Get connected
 
-Jellyfin artwork works without an extra key. TMDB and OMDb keys are optional and saved locally. Each provider may use a different title-matching method and has its own terms and request limits.
+1. Download and open the latest **stable** Windows build from [Releases](https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/latest).
+2. Enter your Jellyfin server’s base address, such as `http://192.168.1.20:8096` (leave off `/web`).
+3. Choose **Get a Quick Connect code**. On a signed-in Jellyfin device, open the user menu → **Quick Connect**, enter the code, and approve it.
+4. Leave GhostyFlix and Discord desktop running, then play something in Jellyfin.
+
+Quick Connect codes expire after five minutes. If your server does not offer Quick Connect, use the API key sign-in option. The [setup guide](docs/USER_GUIDE.md) has screenshots-free, step-by-step instructions and troubleshooting.
+
+## Optional browser companion — early test
+
+The browser companion can show **Browsing Home**, **Browsing Movies**, **Browsing Playlists**, and other Jellyfin sections when playback is idle. Collections may be labelled **Box Sets** in Jellyfin.
+
+> **Experimental:** this companion is an early preview. Jellyfin Web routes and browser extension rules can change, so some views or browser versions may not be detected consistently. Playback Rich Presence remains the primary feature.
+
+The extension supports Chrome, Brave, Opera GX, and Firefox. Local installation requires a few manual steps: Chromium browsers use **Load unpacked**; Firefox loads it temporarily unless Mozilla signs the add-on. A store listing is needed for direct install buttons. Read the [browser companion guide](docs/BROWSER_COMPANION.md) before installing.
+
+The companion only reads the Jellyfin site you approve, sends activity to GhostyFlix over a local connection, and does not read browser history. Playback always takes priority.
+
+For the optional preview, get the [3.0 Test pre-release](https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.2) and follow its included setup sheet. This is a separate test build, not an in-app update. Close the stable app before opening the test build because both use the same local settings and Discord connection.
+
+## Artwork keys
+
+Jellyfin artwork works without an extra key. TMDB and OMDb keys are optional and saved locally.
 
 - [Create a TMDB API key](https://www.themoviedb.org/settings/api)
 - [Get an OMDb API key](https://www.omdbapi.com/apikey.aspx)
 
-For OMDb, enter the key or a complete request URL such as `https://www.omdbapi.com/?i=tt3896198&apikey=YOUR_KEY`. Music artwork can use Jellyfin images or MusicBrainz and the Cover Art Archive; no music API key is required.
+For OMDb, enter the key itself or a complete request URL, such as `https://www.omdbapi.com/?i=tt3896198&apikey=YOUR_KEY`. MusicBrainz and Cover Art Archive artwork does not require an API key.
 
-GhostyFlix includes TMDB's approved logo and attribution in the artwork settings. This product uses the TMDB API but is not endorsed or certified by TMDB. See [TMDB's attribution requirements](https://www.themoviedb.org/about/logos-attribution).
+GhostyFlix includes TMDB’s approved logo and attribution in artwork settings. This product uses the TMDB API but is not endorsed or certified by TMDB. See [TMDB attribution requirements](https://www.themoviedb.org/about/logos-attribution).
 
-## Updates
+## Stable updates and test builds
 
-The app checks public GitHub Releases for a newer Windows build. It verifies the download with the release SHA-256 checksum, then closes and relaunches GhostyFlix while the installer replaces the running executable. Releases must be public for in-app update checks.
+The in-app updater checks the latest full GitHub release, verifies the SHA-256 digest, then installs the stable Windows build. Browser companion test builds are published separately as **pre-releases** and are not offered by the normal updater. A pre-release can be installed manually without replacing the current stable release.
 
 ## Privacy
 
-- Your server address and Jellyfin sign-in token, plus optional artwork keys, are saved in `%APPDATA%\GhostyFlix RPC\ghostyflix_rpc.ini`. This local file is **not encrypted**; do not share or commit it.
-- Playback is read from Jellyfin and sent to Discord's local desktop client. Discord privacy settings control who can see your activity.
-- Discord receives the selected poster image URL. If a Jellyfin address is only reachable on your home network, Discord may not be able to load its poster; a public artwork provider can be used instead.
-- The play/pause badge image is requested from Placehold.co. It uses the selected color and playback mark; its URL contains no title, poster, or account details.
-- Diagnostic logs are stored beside the settings file. Redact personal details before sharing a log.
+- Jellyfin address, sign-in token, and optional provider keys are stored in `%APPDATA%\GhostyFlix RPC\ghostyflix_rpc.ini`. This file is plain text; do not share it.
+- Playback is read from Jellyfin and sent to Discord’s local desktop client. Your Discord privacy settings decide who can see it.
+- Discord needs to reach the selected poster URL. If Jellyfin is only available on your home network, use an external artwork provider for images that Discord cannot load.
+- Logs may include connection details. Redact personal information before sharing them.
 
 ## Build from source
 
@@ -71,16 +101,8 @@ uv sync --locked --extra gui --no-dev
 uv run pyinstaller --noconfirm main.spec
 ```
 
-The app build is written to `dist/GhostyFlix RPC.exe`. To launch the UI from source, run `uv run python -m ghostyflix_rpc`.
+The executable is written to `dist/GhostyFlix RPC.exe`. To run the app from source, use `uv run python -m ghostyflix_rpc`.
 
 ## Contributing
 
-Focused bug reports and improvements are welcome. Please remove server addresses, usernames, tokens, Quick Connect codes, and provider keys from logs and screenshots before posting. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Acknowledgements
-
-GhostyFlix RPC grew from an early build based on [Jellyfin RPC](https://github.com/kennethsible/jellyfin-rpc), which we used as a reference for the original connection flow and playback features. We appreciate the project and its contributors. GhostyFlix v2 has since been rewritten as a separate implementation; see [Acknowledgements](ACKNOWLEDGEMENTS.md) for more context.
-
-## License
-
-GhostyFlix RPC is distributed under the [MIT License](LICENSE). Jellyfin, Discord, TMDB, OMDb, MusicBrainz, and the Cover Art Archive are independent services; their names, artwork, and usage terms remain their respective owners' responsibility.
+Bug reports and focused improvements are welcome. Remove server addresses, usernames, tokens, Quick Connect codes, and API keys from logs and screenshots before posting. See [CONTRIBUTING.md](CONTRIBUTING.md).
