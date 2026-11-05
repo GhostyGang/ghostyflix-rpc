@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/latest">Download</a> ·
-  <a href="https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.1">Optional 3.0 Test build</a> ·
+  <a href="https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.2">Optional 3.0 Test build</a> ·
   <a href="docs/USER_GUIDE.md">Setup guide</a> ·
   <a href="CHANGELOG.md">Release notes</a> ·
   <a href="docs/BROWSER_COMPANION.md">Browser companion</a>
@@ -68,7 +68,7 @@ The extension supports Chrome, Brave, Opera GX, and Firefox. Local installation 
 
 The companion only reads the Jellyfin site you approve, sends activity to GhostyFlix over a local connection, and does not read browser history. Playback always takes priority.
 
-For the optional preview, get the [3.0 Test pre-release](https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.1) and follow its included setup sheet. This is a separate test build, not an in-app update. Close the stable app before opening the test build because both use the same local settings and Discord connection.
+For the optional preview, get the [3.0 Test pre-release](https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.2) and follow its included setup sheet. This is a separate test build, not an in-app update. Close the stable app before opening the test build because both use the same local settings and Discord connection.
 
 ## Artwork keys
 

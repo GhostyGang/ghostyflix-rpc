@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 18977)
-Total output lines: 1185
-
 from __future__ import annotations
 
 import io
@@ -451,7 +448,83 @@ class GhostyFlixApp(ctk.CTk):
         ctk.CTkLabel(diagnostics, text='Choose how much detail to write to the local activity log.', text_color=COLORS['muted'], anchor='w').grid(row=1, column=0, sticky='w', padx=16, pady=(0, 13))
         self.log_level_var = tk.StringVar(value=self.settings.log_level)
         self._option_menu(diagnostics, values=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], variable=self.log_level_var, width=145, fg_color=COLORS['button'], button_color=COLORS['orange'], button_hover_color=COLORS['orange_hover'], corner_radius=10).grid(row=0, column=1, sticky='e', padx=16, pady=(12, 4))
-        actions = ctk.CTkFrame(diagnostics, fg_color='transpar…977 tokens truncated…opdown_hover_color': COLORS['orange_soft'],
+        actions = ctk.CTkFrame(diagnostics, fg_color='transparent')
+        actions.grid(row=0, column=2, rowspan=2, sticky='e', padx=(8, 16), pady=12)
+        self._button(actions, text='Open settings folder', command=self._open_settings_folder, height=36).pack(side='left', padx=(0, 7))
+        self._button(actions, text='Open activity log', command=self._open_activity_log, height=36).pack(side='left')
+        self._button(actions, text='View license notices', command=lambda: self._open_local_path(resource_path('LICENSE')), height=36).pack(side='left', padx=(7, 0))
+        self._button(tab, text='Save preferences', command=self._save_preferences, primary=True, height=44).grid(row=6, column=0, columnspan=2, sticky='ew', padx=18, pady=(8, 16))
+
+    def _section_title(self, parent: Any, title: str, description: str) -> ctk.CTkFrame:
+        frame = ctk.CTkFrame(parent, fg_color='transparent')
+        ctk.CTkLabel(frame, text=title, font=ctk.CTkFont(family='Segoe UI', size=21, weight='bold'), text_color=COLORS['text']).pack(anchor='w')
+        ctk.CTkLabel(frame, text=description, font=ctk.CTkFont(family='Segoe UI', size=12), text_color=COLORS['muted'], wraplength=830, justify='left').pack(anchor='w', pady=(4, 0))
+        return frame
+
+    def _button(
+        self,
+        parent: Any,
+        text: str,
+        command: Any,
+        *,
+        primary: bool = False,
+        quiet: bool = False,
+        **options: Any,
+    ) -> ctk.CTkButton:
+        if quiet:
+            style: dict[str, Any] = {
+                'fg_color': 'transparent', 'hover_color': COLORS['orange_soft'],
+                'text_color': COLORS['orange'], 'border_width': 0,
+            }
+        elif primary:
+            style = {
+                'fg_color': COLORS['orange'], 'hover_color': COLORS['orange_hover'],
+                'text_color': '#17100C', 'border_width': 0,
+            }
+        else:
+            style = {
+                'fg_color': COLORS['button'], 'hover_color': COLORS['button_hover'],
+                'text_color': COLORS['text'], 'border_width': 1, 'border_color': COLORS['edge'],
+            }
+        style.update({
+            'height': 42,
+            'corner_radius': 13,
+            'font': ctk.CTkFont(family='Segoe UI', size=12, weight='bold'),
+        })
+        style.update(options)
+        return ctk.CTkButton(parent, text=text, command=command, **style)
+
+    def _entry(self, parent: Any, placeholder: str, show: str | None = None) -> ctk.CTkEntry:
+        entry = ctk.CTkEntry(parent, height=42, placeholder_text=placeholder, show=show, border_color=COLORS['edge'], fg_color='#111317', text_color=COLORS['text'], placeholder_text_color='#747B84', corner_radius=12, font=ctk.CTkFont(family='Segoe UI', size=12))
+        # CTkEntry (including the pinned 6.x build) does not accept focus_color.
+        # Keep its supported border styling so startup works across supported CTk versions.
+        return entry
+
+    def _checkbox(self, parent: Any, **options: Any) -> ctk.CTkCheckBox:
+        style: dict[str, Any] = {
+            'font': ctk.CTkFont(family='Segoe UI', size=12),
+            'text_color': COLORS['text'],
+            'fg_color': COLORS['orange'],
+            'hover_color': COLORS['orange_hover'],
+            'border_color': COLORS['edge'],
+            'corner_radius': 5,
+            'checkbox_width': 18,
+            'checkbox_height': 18,
+        }
+        style.update(options)
+        return ctk.CTkCheckBox(parent, **style)
+
+    def _option_menu(self, parent: Any, **options: Any) -> ctk.CTkOptionMenu:
+        style: dict[str, Any] = {
+            'height': 38,
+            'corner_radius': 11,
+            'fg_color': COLORS['button'],
+            'button_color': COLORS['orange'],
+            'button_hover_color': COLORS['orange_hover'],
+            'text_color': COLORS['text'],
+            'font': ctk.CTkFont(family='Segoe UI', size=12),
+            'dropdown_fg_color': COLORS['panel_alt'],
+            'dropdown_hover_color': COLORS['orange_soft'],
             'dropdown_text_color': COLORS['text'],
             'dropdown_font': ctk.CTkFont(family='Segoe UI', size=12),
         }

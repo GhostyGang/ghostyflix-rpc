@@ -74,7 +74,7 @@ The companion can report Jellyfin Web sections such as Movies, Playlists, and Co
 
 In **Settings → Optional Browser Companion**, choose **Setup guide** for browser-specific steps or **Extension folder** to open the files. Chrome, Brave, and Opera GX use **Load unpacked** for local testing. Firefox uses **Load Temporary Add-on**; it removes the add-on when Firefox closes. Mozilla signing is required for persistent Firefox installs. See the [full browser companion guide](BROWSER_COMPANION.md).
 
-The optional [3.0 Test browser companion build](https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.1) is a separate pre-release. Close the stable app before using it; both builds share local settings and Discord access. It is not installed through the normal updater.
+The optional [3.0 Test browser companion build](https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.2) is a separate pre-release. Close the stable app before using it; both builds share local settings and Discord access. It is not installed through the normal updater.
 
 Activity is sent from the approved Jellyfin site to GhostyFlix through a local connection. The extension does not read browser history or use a remote activity service. Browsers require a user confirmation to install extensions; a store listing is needed for a direct install button.
 
