@@ -4,12 +4,17 @@ on:
   push:
     tags:
       - "v*"
+  release:
+    types: [published]
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: >-
+      (github.event_name == 'push' && !contains(github.ref_name, '-browser-test.')) ||
+      (github.event_name == 'release' && github.event.release.prerelease)
     runs-on: windows-latest
     steps:
       - name: Check out tagged source
