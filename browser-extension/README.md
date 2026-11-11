@@ -1,6 +1,8 @@
 # GhostyFlix RPC Browser Companion
 
-This optional extension reports the current Jellyfin Web section, and a page title when available, to GhostyFlix on the same PC. Playback takes priority. Supported sections include Home, Movies, Shows, Music, Search, Playlists, and Collections/Box Sets. It does not read browser history or contact a cloud service.
+This optional extension reports the current Jellyfin Web section to GhostyFlix on the same PC. On a details page, it also sends the selected Jellyfin item ID so GhostyFlix can retrieve the item's title, year, genres, and cover using its existing Jellyfin connection. Playback takes priority. Supported sections include Home, Movies, Shows, Music, Search, Playlists, and Collections/Box Sets.
+
+The extension does not read browser history or contact a cloud service. The item ID travels only to the local GhostyFlix app; the Jellyfin token stays inside the app and is never sent to the extension.
 
 ## Chrome, Brave, and Opera GX
 

@@ -21,12 +21,30 @@
     return title.slice(0, 100);
   }
 
+  function itemIdForPage() {
+    // Jellyfin Web commonly keeps the details route and `id` query inside the
+    // hash (for example #!/details?id=<item-id>). Check both URL query forms.
+    const candidates = [location.search, location.hash.replace(/^#?!?/, '')];
+    for (const candidate of candidates) {
+      const query = candidate.includes('?')
+        ? candidate.slice(candidate.indexOf('?') + 1)
+        : candidate;
+      const params = new URLSearchParams(query);
+      const value = params.get('id') || params.get('itemId') || '';
+      if (/^(?:[0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value)) {
+        return value;
+      }
+    }
+    return '';
+  }
+
   function report() {
     if (document.visibilityState !== 'visible') return;
     const page = classify();
     const title = ['details', 'playlists', 'collections'].includes(page) ? titleForPage() : '';
     chrome.runtime.sendMessage({
       type: 'jellyfin-activity', page, title,
+      itemId: page === 'details' ? itemIdForPage() : '',
       server: location.origin,
       expectedOrigin: location.origin
     });

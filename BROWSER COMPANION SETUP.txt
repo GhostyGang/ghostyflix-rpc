@@ -1,9 +1,9 @@
 GHOSTYFLIX RPC — OPTIONAL BROWSER COMPANION
 
-The companion adds browsing activity when Jellyfin is open but nothing is playing. It supports Home, Movies, Shows, Music, Search, Playlists, and Collections (Box Sets). Playback activity always takes priority.
+The companion adds browsing activity when Jellyfin is open but nothing is playing. It supports Home, Movies, Shows, Music, Search, Playlists, and Collections (Box Sets). On a movie or show details page, it can show “Looking at [title] ([year])” with a genre and cover art. Playback activity always takes priority.
 
 PRIVACY
-The extension only reads the Jellyfin site you approve. It does not read browser history or contact a cloud service. It sends the active section and a page title when available to GhostyFlix through a local connection on this PC.
+The extension only reads the Jellyfin site you approve. It does not read browser history or contact a cloud service. It sends the active section and selected item ID to GhostyFlix through a local connection on this PC. The app fetches item details using its existing Jellyfin login; your Jellyfin token stays inside the app.
 
 BEFORE YOU START
 1. Keep GhostyFlix open and connected to the same Jellyfin server used in your browser.
@@ -31,8 +31,10 @@ FIREFOX
 Firefox removes temporary add-ons when it closes. A persistent Firefox install requires Mozilla signing. GhostyFlix does not silently install browser extensions: browsers require the person installing them to approve the requested permissions.
 
 TROUBLESHOOTING
-• If the extension is already installed from this folder, open the browser’s extension page and choose Reload after GhostyFlix updates the extension files.
+• If the extension is already installed from this folder, open the browser’s extension page and choose Reload after GhostyFlix updates the extension files. If it was loaded from another folder, remove that unpacked install and load the updated “Browser Activity Extension” folder beside this guide.
 • Use the exact Jellyfin Web host and port configured in GhostyFlix.
 • Refresh Jellyfin after connecting the extension and leave its tab active for a few seconds.
 • Browsing appears only while no enabled media is playing in Jellyfin.
+• Open a movie or show details page to test the “Looking at” activity. Both 32-character and hyphenated Jellyfin item IDs are supported; a fallback browsing label appears if the active route has no item ID.
+• Discord must be able to reach the selected poster URL. If your Jellyfin server is private, choose TMDB or OMDb artwork in GhostyFlix for Discord; the app preview can still load the poster directly from Jellyfin.
 • For a persistent one-click store install, the GhostyFlix companion needs approved store listings. Until then, local installation requires the short developer-mode or temporary-add-on steps above.

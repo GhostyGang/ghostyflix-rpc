@@ -11,7 +11,7 @@ Start with the quick setup below. The later sections explain artwork, preference
 
 ## Quick setup
 
-1. Download the latest **stable** Windows app from [GitHub Releases](https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/latest) and open it.
+1. Download the latest **stable** Windows app from [GitHub Releases](https://github.com/GhostyGang/ghostyflix-rpc/releases/latest) and open it.
 2. In **Connect**, enter your Jellyfin server’s base address, such as `http://192.168.1.20:8096`. Leave off `/web`.
 3. Choose **Get a Quick Connect code**.
 4. On a device already signed into Jellyfin, open the user menu → **Quick Connect**, enter the displayed code, and approve it.
@@ -74,7 +74,7 @@ The companion can report Jellyfin Web sections such as Movies, Playlists, and Co
 
 In **Settings → Optional Browser Companion**, choose **Setup guide** for browser-specific steps or **Extension folder** to open the files. Chrome, Brave, and Opera GX use **Load unpacked** for local testing. Firefox uses **Load Temporary Add-on**; it removes the add-on when Firefox closes. Mozilla signing is required for persistent Firefox installs. See the [full browser companion guide](BROWSER_COMPANION.md).
 
-The optional [3.0 Test browser companion build](https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.2) is a separate pre-release. Close the stable app before using it; both builds share local settings and Discord access. It is not installed through the normal updater.
+The optional [3.0 Test browser companion build](https://github.com/GhostyGang/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.3) is a separate pre-release. Close the stable app before using it; both builds share local settings and Discord access. It is not installed through the normal updater.
 
 Activity is sent from the approved Jellyfin site to GhostyFlix through a local connection. The extension does not read browser history or use a remote activity service. Browsers require a user confirmation to install extensions; a store listing is needed for a direct install button.
 
@@ -97,7 +97,7 @@ IMDb and trailer links appear as buttons below the activity, not as extra title 
 
 ## Online updates
 
-The updater checks the public repository's latest stable release, validates the executable against its SHA-256 checksum, and downloads it to a temporary folder. When you choose **Install & restart**, GhostyFlix starts a small Windows helper, exits, then the helper replaces the executable and opens the updated app. Test pre-releases are optional and are not offered by the normal updater. If Windows blocks replacement, install the executable manually from [Releases](https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/latest).
+The updater checks the public repository's latest stable release, validates the executable against its SHA-256 checksum, and downloads it to a temporary folder. When you choose **Install & restart**, GhostyFlix starts a small Windows helper, exits, then the helper replaces the executable and opens the updated app. Test pre-releases are optional and are not offered by the normal updater. If Windows blocks replacement, install the executable manually from [Releases](https://github.com/GhostyGang/ghostyflix-rpc/releases/latest).
 
 ## Local data and privacy
 
@@ -144,7 +144,7 @@ Discord needs to fetch an image URL it can reach. A private address such as `192
 - The release must include a Windows `.exe` and a valid `SHA256SUMS.txt` file or GitHub SHA-256 digest.
 - Keep the executable in a folder where your Windows user can replace files, or download the new build manually.
 
-For help, open a [GitHub issue](https://github.com/emoacid1-cmd/ghostyflix-rpc/issues) with the Windows version, steps to reproduce, and relevant redacted log lines. Do not attach credentials, API keys, Quick Connect codes, or your settings file.
+For help, open a [GitHub issue](https://github.com/GhostyGang/ghostyflix-rpc/issues) with the Windows version, steps to reproduce, and relevant redacted log lines. Do not attach credentials, API keys, Quick Connect codes, or your settings file.
 
 ## Acknowledgements
 

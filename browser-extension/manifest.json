@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "GhostyFlix RPC Browser Companion",
-  "version": "0.2.0",
-  "description": "Optionally shares the active Jellyfin Web section with GhostyFlix RPC on this PC.",
+  "version": "0.2.1",
+  "description": "Optionally shares Jellyfin browsing and selected item details with GhostyFlix RPC on this PC.",
   "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": ["http://127.0.0.1:47861/*"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],

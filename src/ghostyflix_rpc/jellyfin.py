@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
 import requests
 
@@ -158,12 +158,61 @@ class JellyfinClient:
 
     def item_libraries(self, user_id: str, item_id: str) -> tuple[str, ...]:
         response = self.http.get(
-            self.endpoint(f'/Users/{user_id}/Items/{item_id}'),
+            self.endpoint(f'/Users/{quote(user_id, safe="")}/Items/{quote(item_id, safe="")}'),
             params={'Fields': 'AncestorIds'},
             timeout=12,
         )
         response.raise_for_status()
         return tuple(str(value) for value in response.json().get('AncestorIds', []))
+
+    def item_metadata(self, user_id: str, item_id: str) -> MediaSession:
+        """Fetch the signed-in user's details for one explicitly selected item."""
+        response = self.http.get(
+            self.endpoint(f'/Users/{quote(user_id, safe="")}/Items/{quote(item_id, safe="")}'),
+            timeout=10,
+        )
+        response.raise_for_status()
+        item = response.json()
+        kind = str(item.get('Type') or '')
+        is_episode = kind in {'Episode', 'Season', 'Series'}
+        is_music = kind in {'Audio', 'MusicAlbum'}
+        provider_ids = item.get('ProviderIds') or {}
+        if is_episode:
+            title = str(item.get('SeriesName') or item.get('Name') or 'TV episode')
+            season = item.get('ParentIndexNumber')
+            episode = item.get('IndexNumber')
+            code = (
+                f'S{int(season):02d} · E{int(episode):02d}'
+                if season is not None and episode is not None else ''
+            )
+            episode_name = str(item.get('Name') or '')
+            subtitle = ' · '.join(value for value in (code, episode_name) if value)
+        else:
+            title = str(item.get('Name') or 'Unknown title')
+            subtitle = ''
+        artists = item.get('Artists') or []
+        return MediaSession(
+            item_id=str(item.get('Id') or item_id),
+            media_type='Music' if is_music else ('Episode' if is_episode else 'Movie'),
+            title=title,
+            subtitle=subtitle,
+            year=int(item['ProductionYear']) if item.get('ProductionYear') else None,
+            genres=[str(value) for value in (item.get('Genres') or [])],
+            position_seconds=0,
+            duration_seconds=int(item.get('RunTimeTicks') or 0) // TICKS_PER_SECOND,
+            paused=True,
+            server_name=self.server_name,
+            imdb_id=str(provider_ids.get('Imdb') or provider_ids.get('IMDb') or ''),
+            tmdb_id=str(provider_ids.get('Tmdb') or ''),
+            musicbrainz_release_id=str(provider_ids.get('MusicBrainzAlbum') or ''),
+            musicbrainz_group_id=str(provider_ids.get('MusicBrainzReleaseGroup') or ''),
+            artist=', '.join(str(value) for value in artists[:3]),
+            album=str(item.get('Album') or item.get('Name') or '') if is_music else '',
+            season_number=(
+                int(item['ParentIndexNumber'])
+                if item.get('ParentIndexNumber') is not None else None
+            ),
+        )
 
     def item_image(self, item_id: str) -> bytes:
         response = self.http.get(

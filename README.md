@@ -9,14 +9,14 @@
 <p align="center">A Windows companion that turns Jellyfin playback into a polished Discord Rich Presence.</p>
 
 <p align="center">
-  <a href="https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/latest"><img alt="Latest stable release" src="https://img.shields.io/github/v/release/emoacid1-cmd/ghostyflix-rpc?label=stable%20release&color=ff7628"></a>
-  <a href="https://github.com/emoacid1-cmd/ghostyflix-rpc/actions/workflows/windows-release.yml"><img alt="Windows build" src="https://github.com/emoacid1-cmd/ghostyflix-rpc/actions/workflows/windows-release.yml/badge.svg"></a>
+  <a href="https://github.com/GhostyGang/ghostyflix-rpc/releases/latest"><img alt="Latest stable release" src="https://img.shields.io/github/v/release/GhostyGang/ghostyflix-rpc?label=stable%20release&color=ff7628"></a>
+  <a href="https://github.com/GhostyGang/ghostyflix-rpc/actions/workflows/windows-release.yml"><img alt="Windows build" src="https://github.com/GhostyGang/ghostyflix-rpc/actions/workflows/windows-release.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-17191E.svg"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/latest">Download</a> ·
-  <a href="https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.2">Optional 3.0 Test build</a> ·
+  <a href="https://github.com/GhostyGang/ghostyflix-rpc/releases/latest">Download</a> ·
+  <a href="https://github.com/GhostyGang/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.3">Optional 3.0 Test build</a> ·
   <a href="docs/USER_GUIDE.md">Setup guide</a> ·
   <a href="CHANGELOG.md">Release notes</a> ·
   <a href="docs/BROWSER_COMPANION.md">Browser companion</a>
@@ -51,7 +51,7 @@ The artwork and progress bar are rendered by Discord; the exact layout can vary 
 
 ## Get connected
 
-1. Download and open the latest **stable** Windows build from [Releases](https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/latest).
+1. Download and open the latest **stable** Windows build from [Releases](https://github.com/GhostyGang/ghostyflix-rpc/releases/latest).
 2. Enter your Jellyfin server’s base address, such as `http://192.168.1.20:8096` (leave off `/web`).
 3. Choose **Get a Quick Connect code**. On a signed-in Jellyfin device, open the user menu → **Quick Connect**, enter the code, and approve it.
 4. Leave GhostyFlix and Discord desktop running, then play something in Jellyfin.
@@ -60,15 +60,15 @@ Quick Connect codes expire after five minutes. If your server does not offer Qui
 
 ## Optional browser companion — early test
 
-The browser companion can show **Browsing Home**, **Browsing Movies**, **Browsing Playlists**, and other Jellyfin sections when playback is idle. Collections may be labelled **Box Sets** in Jellyfin.
+The browser companion can show **Browsing Home**, **Browsing Movies**, **Browsing Playlists**, and other Jellyfin sections when playback is idle. On an item's details page it can show **Looking at [title] ([year])**, its genre, and cover art from Jellyfin metadata. It supports Jellyfin's compact 32-character item IDs as well as hyphenated IDs. Collections may be labelled **Box Sets** in Jellyfin.
 
 > **Experimental:** this companion is an early preview. Jellyfin Web routes and browser extension rules can change, so some views or browser versions may not be detected consistently. Playback Rich Presence remains the primary feature.
 
 The extension supports Chrome, Brave, Opera GX, and Firefox. Local installation requires a few manual steps: Chromium browsers use **Load unpacked**; Firefox loads it temporarily unless Mozilla signs the add-on. A store listing is needed for direct install buttons. Read the [browser companion guide](docs/BROWSER_COMPANION.md) before installing.
 
-The companion only reads the Jellyfin site you approve, sends activity to GhostyFlix over a local connection, and does not read browser history. Playback always takes priority.
+The companion only reads the Jellyfin site you approve, sends the selected item ID to GhostyFlix over a local connection, and does not read browser history. The Jellyfin token stays in the desktop app. Playback always takes priority.
 
-For the optional preview, get the [3.0 Test pre-release](https://github.com/emoacid1-cmd/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.2) and follow its included setup sheet. This is a separate test build, not an in-app update. Close the stable app before opening the test build because both use the same local settings and Discord connection.
+For the optional preview, get the [3.0 Test pre-release](https://github.com/GhostyGang/ghostyflix-rpc/releases/tag/v2.0.16-browser-test.3) and follow its included setup sheet. This is a separate test build, not an in-app update. Close the stable app before opening the test build because both use the same local settings and Discord connection.
 
 ## Artwork keys
 

@@ -1,6 +1,8 @@
 # GhostyFlix RPC Browser Companion
 
-The browser companion is optional. It reports the active Jellyfin Web area and a useful page title when available. It does not read browsing history. Activity is sent to the GhostyFlix app through a loopback-only connection on the same computer, and playback takes priority.
+The browser companion is optional. It reports the active Jellyfin Web area and, on a selected item's details page, its Jellyfin item ID. GhostyFlix uses the signed-in app connection to fetch that item's title, year, genres, and cover art, then can show **Looking at [title] ([year])** while playback is idle. Other sections show a concise browsing label. It does not read browsing history, and playback takes priority.
+
+The extension sends the item ID only to GhostyFlix on the same computer through a loopback-only connection. Jellyfin credentials stay inside the desktop app and are never sent to the extension or Discord.
 
 Supported areas: Home, Movies, Shows, Music, Search, Playlists, and Collections (Box Sets).
 

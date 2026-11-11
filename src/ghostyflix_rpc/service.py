@@ -4,6 +4,7 @@ import queue
 import logging
 import threading
 import time
+import uuid
 from typing import Any
 from urllib.parse import quote
 
@@ -54,8 +55,11 @@ class PlaybackService:
         self._preview_art_cache: dict[str, bytes] = {}
         self._last_artwork_source = ''
         self._last_artwork_item = ''
-        self._browser_activity: tuple[str, str, float] | None = None
-        self._browser_signature: tuple[str, str] | None = None
+        self._browser_activity: tuple[str, str, str, float] | None = None
+        self._browser_signature: tuple[Any, ...] | None = None
+        self._browser_item_cache: dict[str, tuple[MediaSession, bytes | None]] = {}
+        self._browser_lookup_pending: set[str] = set()
+        self._browser_lookup_retry: dict[str, float] = {}
         self._browser_bridge = BrowserActivityBridge(lambda payload: self.commands.put(('browser_activity', payload)))
 
     def start(self) -> None:
@@ -129,6 +133,7 @@ class PlaybackService:
                 return
             page = str(payload.get('page') or '')[:20]
             title = ' '.join(str(payload.get('title') or '').split())[:100]
+            item_id = str(payload.get('item_id') or '').strip()
             server = normalized_origin(str(payload.get('server') or ''))
             configured = normalized_origin(self._settings.jellyfin_host)
             if not server or server != configured:
@@ -137,8 +142,42 @@ class PlaybackService:
                 self._browser_activity = None
                 self._browser_signature = None
             elif page in {'home', 'movies', 'shows', 'music', 'search', 'playlists', 'collections', 'details'}:
-                self._browser_activity = (page, title, time.monotonic() + 12)
+                if page != 'details' or not self._valid_item_id(item_id):
+                    item_id = ''
+                previous = self._browser_activity
+                self._browser_activity = (page, title, item_id, time.monotonic() + 12)
+                if not previous or previous[:3] != (page, title, item_id):
+                    self._browser_signature = None
+                if (
+                    item_id
+                    and item_id not in self._browser_item_cache
+                    and item_id not in self._browser_lookup_pending
+                    and self._browser_lookup_retry.get(item_id, 0) <= time.monotonic()
+                ):
+                    self._start_browser_item_lookup(item_id, server)
                 self._emit('browser_activity', page=page, title=title)
+            return
+        if name == 'browser_item_details':
+            item_id = str(payload.get('item_id') or '')
+            server = normalized_origin(str(payload.get('server') or ''))
+            if (
+                not self._valid_item_id(item_id)
+                or server != normalized_origin(self._settings.jellyfin_host)
+                or str(payload.get('user_id') or '') != self._user_id
+            ):
+                self._browser_lookup_pending.discard(item_id)
+                return
+            self._browser_lookup_pending.discard(item_id)
+            media = payload.get('media')
+            if isinstance(media, MediaSession):
+                self._browser_lookup_retry.pop(item_id, None)
+                self._browser_item_cache[item_id] = (media, payload.get('image'))
+                if len(self._browser_item_cache) > 64:
+                    self._browser_item_cache.pop(next(iter(self._browser_item_cache)))
+                if self._browser_activity and self._browser_activity[2] == item_id:
+                    self._browser_signature = None
+            else:
+                self._browser_lookup_retry[item_id] = time.monotonic() + 30
             return
         if name == 'settings':
             self._settings = payload
@@ -189,6 +228,10 @@ class PlaybackService:
             self._last_published = None
             self._user_id = ''
             self._user_name = ''
+            self._browser_activity = None
+            self._browser_item_cache.clear()
+            self._browser_lookup_pending.clear()
+            self._browser_lookup_retry.clear()
             self._settings.jellyfin_token = ''
             self._settings.jellyfin_api_key = ''
             self._settings.jellyfin_user_id = ''
@@ -232,9 +275,53 @@ class PlaybackService:
         self._user_name = name
         self._library_cache.clear()
         self._preview_art_cache.clear()
+        self._browser_item_cache.clear()
+        self._browser_lookup_pending.clear()
+        self._browser_lookup_retry.clear()
         self._last_published = None
         self._status(f'Connected as {name}. Waiting for playback…')
         self._emit('connected', name=name, server=settings.jellyfin_host)
+
+    @staticmethod
+    def _valid_item_id(value: str) -> bool:
+        try:
+            parsed = uuid.UUID(value)
+            return value.lower() in {str(parsed), parsed.hex}
+        except (ValueError, AttributeError):
+            return False
+
+    def _start_browser_item_lookup(self, item_id: str, server: str) -> None:
+        client = self._client
+        user_id = self._user_id
+        if not client or not user_id:
+            return
+        token = client.token
+        device_id = client.device_id
+        host = self._settings.jellyfin_host
+        self._browser_lookup_pending.add(item_id)
+
+        def lookup() -> None:
+            media: MediaSession | None = None
+            image: bytes | None = None
+            lookup_client: JellyfinClient | None = None
+            try:
+                lookup_client = JellyfinClient(host, token, device_id=device_id)
+                media = lookup_client.item_metadata(user_id, item_id)
+                try:
+                    image = lookup_client.item_image(item_id)
+                except Exception:
+                    image = None
+            except Exception as exc:
+                logging.debug('Browser item metadata lookup failed: %s', str(exc)[:180])
+            finally:
+                if lookup_client:
+                    lookup_client.http.close()
+            self.commands.put((
+                'browser_item_details',
+                {'item_id': item_id, 'server': server, 'user_id': user_id, 'media': media, 'image': image},
+            ))
+
+        threading.Thread(target=lookup, name='GhostyFlix browser item lookup', daemon=True).start()
 
     def _poll_playback(self) -> None:
         if not self._client:
@@ -252,7 +339,18 @@ class PlaybackService:
             if media is None and self._publish_browser_activity():
                 self._status(f'Browsing Jellyfin · {self._browser_activity[0]}')
                 server_name = self._client.server_name if self._settings.show_server_name else 'Jellyfin'
-                self._emit('playback', media=None, browser=self._browser_activity[:2], server_name=server_name)
+                page, title, item_id, _expires = self._browser_activity
+                cached = self._browser_item_cache.get(item_id) if item_id else None
+                browser_media, browser_preview_art = cached if cached else (None, None)
+                browser_poster = (
+                    self._artwork.poster(browser_media, self._client, self._settings)
+                    if browser_media else ''
+                )
+                self._emit(
+                    'playback', media=None, browser=(page, title, item_id), server_name=server_name,
+                    browser_media=browser_media, browser_poster=browser_poster,
+                    browser_preview_art=browser_preview_art,
+                )
                 return
             self._clear_presence()
             self._status(f'Connected as {self._user_name}. Waiting for playback…')
@@ -314,12 +412,23 @@ class PlaybackService:
         activity = self._browser_activity
         if not activity:
             return False
-        page, title, expires = activity
+        page, title, item_id, expires = activity
         if time.monotonic() >= expires:
             self._browser_activity = None
             self._browser_signature = None
             return False
-        signature = (page, title)
+        cached = self._browser_item_cache.get(item_id) if item_id else None
+        media = cached[0] if cached else None
+        poster = (
+            self._artwork.poster(media, self._client, self._settings)
+            if media and self._client else ''
+        )
+        signature = (
+            page, title, item_id,
+            media.title if media else '', media.year if media else None,
+            tuple(media.genres) if media else (), poster,
+            self._settings.genre_limit, self._settings.show_server_name,
+        )
         if signature == self._browser_signature and self._rpc:
             return True
         if not self._ensure_rpc():
@@ -329,15 +438,27 @@ class PlaybackService:
             'music': 'Music', 'search': 'Search', 'playlists': 'Playlists',
             'collections': 'Collections',
         }
-        details = f'Viewing {title}' if title else f'Browsing {labels.get(page, "Jellyfin")}'
+        if media:
+            display_title = media.title + (f' ({media.year})' if media.year else '')
+            details = f'Looking at {display_title}'
+            state = select_genres(media, self._settings.genre_limit)
+        else:
+            details = f'Viewing {title}' if title else f'Browsing {labels.get(page, "Jellyfin")}'
+            state = ''
         server_name = self._client.server_name if self._settings.show_server_name else 'Jellyfin'
         try:
             self._rpc.update(
                 activity_type=ActivityType.WATCHING,
                 name=server_name[:128],
                 details=details[:128],
-                large_image='https://raw.githubusercontent.com/emoacid1-cmd/ghostyflix-rpc/main/assets/icon.png',
-                large_text='GhostyFlix RPC · Browser activity',
+                state=state[:128] if state else None,
+                large_image=(normalize_public_image(poster) if poster else '') or (
+                    'https://raw.githubusercontent.com/GhostyGang/ghostyflix-rpc/main/assets/icon.png'
+                ),
+                large_text=(
+                    f'{media.title} · GhostyFlix RPC'
+                    if media else 'GhostyFlix RPC · Browser activity'
+                )[:128],
             )
             self._browser_signature = signature
             self._last_published = None
@@ -381,7 +502,7 @@ class PlaybackService:
             start = now_epoch - media.position_seconds
             end = now_epoch + media.remaining_seconds
         try:
-            logo_url = 'https://raw.githubusercontent.com/emoacid1-cmd/ghostyflix-rpc/main/assets/icon.png'
+            logo_url = 'https://raw.githubusercontent.com/GhostyGang/ghostyflix-rpc/main/assets/icon.png'
             small_image = badge if self._settings.show_playback_badge else (
                 logo_url if self._settings.show_jellyfin_logo else None
             )
@@ -395,7 +516,7 @@ class PlaybackService:
                 name=(media.server_name if self._settings.show_server_name else 'Jellyfin')[:128],
                 details=details[:128],
                 state=state[:128] if state else None,
-                large_image=normalize_public_image(poster) or 'https://raw.githubusercontent.com/emoacid1-cmd/ghostyflix-rpc/main/assets/icon.png',
+                large_image=normalize_public_image(poster) or 'https://raw.githubusercontent.com/GhostyGang/ghostyflix-rpc/main/assets/icon.png',
                 large_text=f'{media.title} · GhostyFlix RPC'[:128],
                 small_image=small_image,
                 small_text=small_text,

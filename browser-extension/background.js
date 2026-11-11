@@ -32,7 +32,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // text/plain avoids an unnecessary CORS preflight; the loopback bridge
       // still parses and validates the JSON body.
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify({ page: message.page, title: message.title, server: message.server }),
+      body: JSON.stringify({
+        page: message.page,
+        title: message.title,
+        item_id: message.itemId,
+        server: message.server
+      }),
       cache: 'no-store'
     }).catch(() => {});
   }

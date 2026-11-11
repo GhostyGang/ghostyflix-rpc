@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve GhostyFlix RPC. Before opening an issue, search the existing [issues](https://github.com/emoacid1-cmd/ghostyflix-rpc/issues) for a report of the same problem.
+Thanks for helping improve GhostyFlix RPC. Before opening an issue, search the existing [issues](https://github.com/GhostyGang/ghostyflix-rpc/issues) for a report of the same problem.
 
 ## Bug reports
 

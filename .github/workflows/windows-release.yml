@@ -81,11 +81,12 @@ jobs:
         run: |
           $isBrowserTest = $env:GITHUB_REF_NAME.Contains("-browser-test.")
           if ($isBrowserTest) {
+            $manifest = Get-Content -Raw -LiteralPath "browser-extension/manifest.json" | ConvertFrom-Json
             $assets = @(
               "dist/GhostyFlix RPC.exe",
               "dist/GhostyFlix-RPC-3.0-TEST-Browser-Companion.zip",
-              "dist/browser-companion/GhostyFlix-Browser-Companion-0.2.0.zip",
-              "dist/browser-companion/GhostyFlix-Browser-Companion-0.2.0-unsigned.xpi",
+              "dist/browser-companion/GhostyFlix-Browser-Companion-$($manifest.version).zip",
+              "dist/browser-companion/GhostyFlix-Browser-Companion-$($manifest.version)-unsigned.xpi",
               "dist/LICENSE.txt",
               "dist/SHA256SUMS.txt"
             )

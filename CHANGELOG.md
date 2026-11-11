@@ -1,9 +1,12 @@
 # Changelog
 
-## 3.0 Test — optional browser companion preview
+## 3.0 Test .3 — details-page activity
 
 - Add early Jellyfin Web browsing activity for Home, Movies, Shows, Music, Search, Playlists, and Collections/Box Sets.
-- Add a local browser-to-app bridge, optional browser extension setup, and a separate pre-release package. Playback continues to take priority.
+- On a movie, show, season, or episode details page, fetch the selected Jellyfin item's title, year, genres, provider IDs, and cover using the app's existing Jellyfin sign-in.
+- Accept both Jellyfin's compact 32-character item IDs and standard hyphenated UUIDs. Keep the token inside the desktop app; the extension sends only the item ID over the loopback bridge.
+- Show a concise “Looking at [title] ([year])” Discord activity with a genre and the configured artwork source. Playback continues to take priority.
+- Publish the browser extension as version 0.2.1 in its optional pre-release package.
 - This is an experimental test build; it does not change the stable app version or the in-app updater's stable release channel.
 
 ## 2.0.16 — 2026-11-01

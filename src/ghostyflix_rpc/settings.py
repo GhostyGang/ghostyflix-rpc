@@ -44,7 +44,7 @@ class Settings:
     polling_rate: int = 3
     seek_threshold: int = 3
     log_level: str = 'INFO'
-    update_repository: str = 'emoacid1-cmd/ghostyflix-rpc'
+    update_repository: str = 'GhostyGang/ghostyflix-rpc'
     automatic_updates: bool = True
     show_jellyfin_logo: bool = False
     textless_posters: bool = False
@@ -110,6 +110,10 @@ class Settings:
         raw['log_level'] = str(raw.get('log_level', 'INFO')).upper()
         if raw['log_level'] not in {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'}:
             raw['log_level'] = 'INFO'
+        repository = str(raw.get('update_repository', 'GhostyGang/ghostyflix-rpc')).strip()
+        if repository.lower() == 'emoacid1-cmd/ghostyflix-rpc':
+            repository = 'GhostyGang/ghostyflix-rpc'
+        raw['update_repository'] = repository
         if raw.get('poster_provider') not in {'Jellyfin', 'TMDB', 'OMDb'}:
             raw['poster_provider'] = 'Jellyfin'
         return cls(**raw)
